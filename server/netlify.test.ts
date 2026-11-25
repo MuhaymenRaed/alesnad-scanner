@@ -72,3 +72,14 @@ describe('Netlify function handler', () => {
     expect(JSON.parse(res.body).error.message).toMatch(/not configured/)
   })
 })
+
+describe('Netlify: the site domain is trusted even without URL / FRONTEND_ORIGIN', () => {
+  it('accepts tokens issued for the domain the request came in on, and nothing else', async () => {
+    const { URL: _omit, ...env } = baseEnv
+    const handler = createNetlifyHandler({ ...env, FRONTEND_ORIGIN: 'http://localhost:5173' }, createFakeErpNext().fetchImpl)
+    const forSite = (await handler(event('/api/session', {}, { authorization: `Bearer ${signSessionToken({ azp: SITE })}` }), {})) as Response
+    expect(forSite.statusCode).toBe(200)
+    const foreign = (await handler(event('/api/session', {}, { authorization: `Bearer ${signSessionToken({ azp: 'https://evil.example' })}` }), {})) as Response
+    expect(foreign.statusCode).toBe(401)
+  })
+})

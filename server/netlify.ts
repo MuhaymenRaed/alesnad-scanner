@@ -29,6 +29,8 @@ export function netlifyEnv(source: Env): Env {
     .filter(Boolean)
   env.FRONTEND_ORIGIN = [...new Set(origins)].join(',') || undefined
   env.TRUST_PROXY ??= '1'
+  // Netlify only routes the site's own domains to this function, so the request Host is the site.
+  env.AUTHORIZE_REQUEST_HOST ??= 'true'
   const timeout = Number(env.ERPNEXT_TIMEOUT_MS ?? '10000')
   if (!Number.isFinite(timeout) || timeout > NETLIFY_FUNCTION_LIMIT_MS) env.ERPNEXT_TIMEOUT_MS = String(NETLIFY_FUNCTION_LIMIT_MS)
   return env
@@ -60,7 +62,7 @@ export function createNetlifyHandler(source: Env = process.env, fetchImpl?: type
 
 let instance: Handler | undefined
 
-/** Netlify entry point (re-exported by netlify/functions/api.mjs). Built once per warm instance. */
+/** Netlify entry point (loaded by netlify/functions/api.cjs). Built once per warm instance. */
 export const handler: Handler = (event, context) => {
   instance ??= createNetlifyHandler()
   return instance(event, context)

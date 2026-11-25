@@ -349,7 +349,7 @@ Production checklist:
 ### Netlify (one site: static app + API function)
 
 `netlify.toml` is ready. The site serves `dist/`, `/api/*` is rewritten to the Netlify Function
-`netlify/functions/api.mjs` (the same Express app, compiled from `server/netlify.ts`), and every other
+`netlify/functions/api.cjs` (the same Express app, compiled from `server/netlify.ts`), and every other
 path falls back to `index.html`. Build command: `npm run build:netlify` (typecheck → Vite → tsc).
 
 In **Site configuration → Environment variables** (scope: Builds + Functions) set:

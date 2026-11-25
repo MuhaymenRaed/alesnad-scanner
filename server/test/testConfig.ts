@@ -10,6 +10,7 @@ export function testConfig(overrides: { erpnext?: Partial<AppConfig['erpnext']>;
     logLevel: 'silent',
     frontendOrigins: [TEST_ORIGIN],
     trustProxy: false,
+    authorizeRequestHost: false,
     lookupRateLimitPerMinute: overrides.lookupRateLimitPerMinute ?? 1000,
     erpnext: {
       baseUrl: TEST_ERP_URL,

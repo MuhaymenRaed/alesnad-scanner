@@ -1,4 +1,4 @@
-# Netlify: static React app (dist/) + the Express API as a Netlify Function (netlify/functions/api.mjs).
+# Netlify: static React app (dist/) + the Express API as a Netlify Function (netlify/functions/api.cjs).
 [build]
   command = "npm run build:netlify"
   publish = "dist"
@@ -9,11 +9,11 @@
   # These are plain settings (not secrets) whose values legitimately appear in code, defaults and
   # docs. Real secrets — ERPNEXT_API_KEY, ERPNEXT_API_SECRET, CLERK_SECRET_KEY, CLERK_JWT_KEY —
   # stay scanned, so a leaked credential still fails the build.
-  SECRETS_SCAN_OMIT_KEYS = "PORT,FRONTEND_ORIGIN,ERPNEXT_BASE_URL,ERPNEXT_PRICE_LIST,ERPNEXT_ALLOW_BUYING_PRICE_LIST,ERPNEXT_TIMEOUT_MS,ERPNEXT_COMPANY,ERPNEXT_COMPANY_ITEM_GROUP,ERPNEXT_ITEM_GROUPS,ITEM_METADATA_FIELDS,DISABLED_ITEM_POLICY,LOOKUP_MATCH_ITEM_CODE,LOOKUP_RATE_LIMIT_PER_MINUTE,LOG_LEVEL,TRUST_PROXY,NODE_ENV,VITE_CLERK_PUBLISHABLE_KEY,CLERK_PUBLISHABLE_KEY,VITE_ENABLE_SIGN_UP,VITE_API_BASE_URL,ACCESS_ALLOWED_USER_IDS,ACCESS_DENIED_USER_IDS"
+  SECRETS_SCAN_OMIT_KEYS = "PORT,FRONTEND_ORIGIN,ERPNEXT_BASE_URL,ERPNEXT_PRICE_LIST,ERPNEXT_ALLOW_BUYING_PRICE_LIST,ERPNEXT_TIMEOUT_MS,ERPNEXT_COMPANY,ERPNEXT_COMPANY_ITEM_GROUP,ERPNEXT_ITEM_GROUPS,ITEM_METADATA_FIELDS,DISABLED_ITEM_POLICY,LOOKUP_MATCH_ITEM_CODE,LOOKUP_RATE_LIMIT_PER_MINUTE,LOG_LEVEL,TRUST_PROXY,NODE_ENV,VITE_CLERK_PUBLISHABLE_KEY,CLERK_PUBLISHABLE_KEY,VITE_ENABLE_SIGN_UP,VITE_API_BASE_URL,ACCESS_ALLOWED_USER_IDS,ACCESS_DENIED_USER_IDS,AUTHORIZE_REQUEST_HOST"
 
 [functions]
   directory = "netlify/functions"
-  # Plain Node ESM (already compiled by tsc) — traced, not re-bundled.
+  # api.cjs + the tsc-compiled server are traced and shipped as-is, not re-bundled.
   node_bundler = "nft"
 
 # The API: same-origin /api/* → the function (no CORS needed).

@@ -50,6 +50,8 @@ export interface AppConfig {
   /** Allowed browser origins — used for CORS and Clerk's authorized-parties (azp) check. */
   frontendOrigins: string[]
   trustProxy: boolean | number | string
+  /** Accept Clerk tokens issued for https://<request Host> (platforms that route by Host only, e.g. Netlify). */
+  authorizeRequestHost: boolean
   lookupRateLimitPerMinute: number
   erpnext: ErpNextConfig
   clerk: ClerkConfig
@@ -208,6 +210,7 @@ export function loadAppConfig(env: Env = process.env): AppConfig {
     frontendOrigins,
     trustProxy,
     lookupRateLimitPerMinute: int(env, 'LOOKUP_RATE_LIMIT_PER_MINUTE', 120, 1, 10000, problems),
+    authorizeRequestHost: bool(env, 'AUTHORIZE_REQUEST_HOST', false, problems),
     erpnext,
     clerk: { publishableKey, secretKey, jwtKey: env.CLERK_JWT_KEY?.trim() || undefined },
     access: {

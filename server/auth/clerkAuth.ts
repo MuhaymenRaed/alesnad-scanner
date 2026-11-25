@@ -23,6 +23,12 @@ export function createAuthMiddleware(options: {
   clerk: ClerkConfig
   /** Browser origins allowed to have issued the token (checked against the `azp` claim). */
   authorizedParties: string[]
+  /**
+   * Also accept tokens issued for `https://<request Host>`. Only safe where the platform routes
+   * by Host so a request cannot claim a foreign one (e.g. Netlify: only the site's own domains
+   * reach the function). Off by default.
+   */
+  authorizeRequestHost?: boolean
   accessPolicy: AccessPolicy
   logger: Logger
 }): RequestHandler[] {
@@ -47,13 +53,21 @@ export function createAuthMiddleware(options: {
     next()
   }
 
-  const verifyWithClerk = clerkMiddleware({
+  const clerkOptions = {
     clerkClient,
     secretKey: clerk.secretKey,
     publishableKey: clerk.publishableKey,
     ...(clerk.jwtKey ? { jwtKey: clerk.jwtKey } : {}),
     authorizedParties: options.authorizedParties,
-  })
+  }
+  const verifyWithClerk = options.authorizeRequestHost
+    ? clerkMiddleware((req) => {
+        const host = req.get('host')
+        return host && /^[a-z0-9.-]+(:\d+)?$/i.test(host)
+          ? { ...clerkOptions, authorizedParties: [...options.authorizedParties, `https://${host.toLowerCase()}`] }
+          : clerkOptions
+      })
+    : clerkMiddleware(clerkOptions)
 
   // Clerk adds x-clerk-auth-status/-reason/-message debug headers; the message can contain token
   // verification details (e.g. expiry timestamps). Never send those to the client.

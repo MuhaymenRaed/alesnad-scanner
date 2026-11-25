@@ -106,6 +106,7 @@ export function createApp({ config, logger, fetchImpl, today, warmUp = false }: 
   const requireUser = createAuthMiddleware({
     clerk: config.clerk,
     authorizedParties: config.frontendOrigins,
+    authorizeRequestHost: config.authorizeRequestHost,
     accessPolicy: createAccessPolicy(config.access),
     logger,
   })
