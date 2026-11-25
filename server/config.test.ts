@@ -62,3 +62,12 @@ describe('access policy', () => {
     expect(policy.evaluate({ userId: 'user_c' })).toEqual({ allowed: false, reason: 'not_allowlisted' })
   })
 })
+
+describe('company item group', () => {
+  it('defaults to the company name, can be overridden or disabled', () => {
+    expect(loadAppConfig({ ...valid, ERPNEXT_COMPANY: 'الاسناد' }).erpnext.companyItemGroup).toBe('الاسناد')
+    expect(loadAppConfig({ ...valid, ERPNEXT_COMPANY: 'الاسناد', ERPNEXT_COMPANY_ITEM_GROUP: 'Catalogue' }).erpnext.companyItemGroup).toBe('Catalogue')
+    expect(loadAppConfig({ ...valid, ERPNEXT_COMPANY: 'الاسناد', ERPNEXT_COMPANY_ITEM_GROUP: 'none' }).erpnext.companyItemGroup).toBeNull()
+    expect(loadAppConfig(valid).erpnext.companyItemGroup).toBeNull()
+  })
+})

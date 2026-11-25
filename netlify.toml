@@ -1,0 +1,45 @@
+# Netlify: static React app (dist/) + the Express API as a Netlify Function (netlify/functions/api.mjs).
+[build]
+  command = "npm run build:netlify"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Netlify's secret scanner flags the VALUES of every environment variable found in the repo.
+  # These are plain settings (not secrets) whose values legitimately appear in code, defaults and
+  # docs. Real secrets — ERPNEXT_API_KEY, ERPNEXT_API_SECRET, CLERK_SECRET_KEY, CLERK_JWT_KEY —
+  # stay scanned, so a leaked credential still fails the build.
+  SECRETS_SCAN_OMIT_KEYS = "PORT,FRONTEND_ORIGIN,ERPNEXT_BASE_URL,ERPNEXT_PRICE_LIST,ERPNEXT_ALLOW_BUYING_PRICE_LIST,ERPNEXT_TIMEOUT_MS,ERPNEXT_COMPANY,ERPNEXT_COMPANY_ITEM_GROUP,ERPNEXT_ITEM_GROUPS,ITEM_METADATA_FIELDS,DISABLED_ITEM_POLICY,LOOKUP_MATCH_ITEM_CODE,LOOKUP_RATE_LIMIT_PER_MINUTE,LOG_LEVEL,TRUST_PROXY,NODE_ENV,VITE_CLERK_PUBLISHABLE_KEY,CLERK_PUBLISHABLE_KEY,VITE_ENABLE_SIGN_UP,VITE_API_BASE_URL,ACCESS_ALLOWED_USER_IDS,ACCESS_DENIED_USER_IDS"
+
+[functions]
+  directory = "netlify/functions"
+  # Plain Node ESM (already compiled by tsc) — traced, not re-bundled.
+  node_bundler = "nft"
+
+# The API: same-origin /api/* → the function (no CORS needed).
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Single-page app: every other path (e.g. /sign-in) serves index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # The camera is used by this site only; everything else is off.
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=(), payment=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

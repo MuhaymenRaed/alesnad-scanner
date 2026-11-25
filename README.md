@@ -96,6 +96,7 @@ are gitignored; only `.env.example` is committed.
 | `ERPNEXT_ALLOW_BUYING_PRICE_LIST` | no (`false`) | Allows a price list that is also flagged *Buying*. |
 | `ERPNEXT_TIMEOUT_MS` | no (`10000`) | Timeout for each request to ERPNext. |
 | `ERPNEXT_COMPANY` | no (recommended) | Only Items of this company can be looked up — an Item belongs to it when **Item → Item Defaults** has a row for the company. Other companies’ Items are never read, priced or imaged, and are reported exactly like a barcode that does not exist. |
+| `ERPNEXT_COMPANY_ITEM_GROUP` | no (company name) | Items with **no Item Defaults at all** (typically newly created ones) also count as the company’s when their item group is inside this group tree (sub-groups included). Items whose defaults name another company never do. `none` disables this and requires an Item Default. |
 | `ERPNEXT_ITEM_GROUPS` | no | Comma-separated item groups (sub-groups included). Items outside them return `ITEM_OUT_OF_SCOPE`. |
 | `ITEM_METADATA_FIELDS` | no | Extra Item fields for the details panel, including custom fields such as `custom_device_color`. |
 | `DISABLED_ITEM_POLICY` | no (`warn`) | `warn` shows disabled Items with a prominent warning. `reject` treats them as `ITEM_DISABLED` (404). |
@@ -172,7 +173,7 @@ npm run check:erpnext -- 0123456789  # plus a full lookup, exactly as the API wo
    - **No Item:** `404 ITEM_NOT_FOUND`.
    - **One Item:** that Item is read with `GET /api/resource/Item/{name}`.
    - **Several Items:** `409 AMBIGUOUS_BARCODE` with the candidates (code, name, group, disabled). The app never picks one silently. The user chooses, and the server re-runs the match and accepts the choice only if it is one of the exact matches.
-5. **Company scope.** With `ERPNEXT_COMPANY`, the barcode query runs in parallel with an Item query filtered on `Item Default.company`, and only Items in both are kept, before any Item is read in detail. The Item document is checked again (defence in depth). Items of other companies, or with no company, return the same `ITEM_NOT_FOUND` as an unknown barcode; the item-code match and the image endpoint use the same filter.
+5. **Company scope.** With `ERPNEXT_COMPANY`, the barcode query runs in parallel with an Item query filtered on `Item Default.company`, and only Items in both are kept, before any Item is read in detail. The Item document is checked again (defence in depth). Items without any Item Defaults count as the company’s when their group is inside `ERPNEXT_COMPANY_ITEM_GROUP` (default: the group named like the company). Items of other companies, or outside both rules, return the same `ITEM_NOT_FOUND` as an unknown barcode; the item-code match and the image endpoint use the same filter.
 6. Disabled Items follow `DISABLED_ITEM_POLICY`. Items outside `ERPNEXT_ITEM_GROUPS` return `ITEM_OUT_OF_SCOPE`.
 7. With `LOOKUP_MATCH_ITEM_CODE=true`, an exact Item Code match is tried when no barcode matches, and the result is labelled "Matched by item code".
 
@@ -345,6 +346,27 @@ Production checklist:
 - If the API is on a different origin, build with `VITE_API_BASE_URL=https://api.example.com` and list the frontend origin in `FRONTEND_ORIGIN` (CORS).
 - Keep `.env` out of version control and give the ERPNext integration user read-only permissions.
 
+### Netlify (one site: static app + API function)
+
+`netlify.toml` is ready. The site serves `dist/`, `/api/*` is rewritten to the Netlify Function
+`netlify/functions/api.mjs` (the same Express app, compiled from `server/netlify.ts`), and every other
+path falls back to `index.html`. Build command: `npm run build:netlify` (typecheck → Vite → tsc).
+
+In **Site configuration → Environment variables** (scope: Builds + Functions) set:
+
+| Variable | Value |
+| --- | --- |
+| `ERPNEXT_BASE_URL`, `ERPNEXT_API_KEY`, `ERPNEXT_API_SECRET` | as in `.env` |
+| `ERPNEXT_COMPANY` | `الاسناد` |
+| `ERPNEXT_PRICE_LIST` / `ERPNEXT_ALLOW_BUYING_PRICE_LIST` | `الاسناد` / `true` |
+| `ITEM_METADATA_FIELDS`, `LOOKUP_MATCH_ITEM_CODE`, `DISABLED_ITEM_POLICY` | as in `.env` |
+| `VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | your Clerk keys |
+| `FRONTEND_ORIGIN` | your site URL, e.g. `https://alesnad-scanner.netlify.app` (the site's Netlify URLs are also added automatically) |
+
+Not needed on Netlify: `PORT`. `ERPNEXT_TIMEOUT_MS` is capped at 8 s because Netlify functions stop
+after 10 s. Netlify's secret scanner is told which variables are plain settings
+(`SECRETS_SCAN_OMIT_KEYS` in `netlify.toml`); the API secret and Clerk secret key are still scanned.
+
 ## Troubleshooting
 
 | Symptom | What to check |
@@ -363,5 +385,3 @@ Production checklist:
 | Camera: "permission denied" | Allow the camera in the browser's site settings and reopen the camera. |
 | Camera: "unavailable" | Open the app over HTTPS (or `localhost`); browsers block cameras on plain HTTP. |
 | Camera: "busy" | Close other apps or tabs using the camera. |
-#   a l e s n a d - s c a n n e r  
- 

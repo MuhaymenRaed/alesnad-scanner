@@ -97,8 +97,22 @@ async function main() {
         filters: [['Item Default', 'company', '=', config.company]],
         limit: 0,
       })
-      if (companyItems.length === 0) fail(`no Item belongs to company "${config.company}" — check the name (every lookup will be "not found")`)
-      else ok(`only Items of "${config.company}" are visible (${companyItems.length} item(s))`)
+      ok(`${companyItems.length} Item(s) have an Item Default row for "${config.company}"`)
+      if (config.companyItemGroup) {
+        const scope = createItemGroupScope(client, [config.companyItemGroup], logger)
+        const noDefaults = await client.getList<{ name: string; item_group?: string | null }>('Item', {
+          fields: ['name', 'item_group'],
+          filters: [['Item Default', 'company', 'is', 'not set']],
+          limit: 0,
+        })
+        let adopted = 0
+        for (const row of noDefaults) if (await scope.isAllowed(row.item_group ?? null)) adopted++
+        ok(`+ ${adopted} Item(s) with no Item Defaults inside the "${config.companyItemGroup}" item-group tree`)
+        if (companyItems.length + adopted === 0) fail('no Item belongs to the company — check ERPNEXT_COMPANY (every lookup will be "not found")')
+      } else if (companyItems.length === 0) {
+        fail(`no Item belongs to company "${config.company}" — check the name (every lookup will be "not found")`)
+      }
+      ok('Items of other companies are invisible (reported as "not found")')
     } catch (error) {
       fail(`could not apply the company filter (${error instanceof ErpNextError ? error.kind : 'error'})`)
     }
@@ -116,6 +130,7 @@ async function main() {
       schema: createSchemaService(client, logger),
       pricing: createPricingService({ client, schema: createSchemaService(client, logger), logger, priceList: config.priceList, allowBuyingPriceList: config.allowBuyingPriceList }),
       scope: createItemGroupScope(client, config.itemGroups, logger),
+      companyGroups: createItemGroupScope(client, config.companyItemGroup ? [config.companyItemGroup] : [], logger),
       config,
       logger,
     })

@@ -50,6 +50,8 @@ export function createProductLookupService(deps: {
   schema: SchemaService
   pricing: PricingService
   scope: ItemGroupScope
+  /** The company's own item-group tree (ERPNEXT_COMPANY_ITEM_GROUP). */
+  companyGroups: ItemGroupScope
   config: ErpNextConfig
   logger: Logger
 }): ProductLookupService {
@@ -74,30 +76,56 @@ export function createProductLookupService(deps: {
   }
 
   /**
-   * Company scope (ERPNEXT_COMPANY): an Item belongs to the company when it has an Item Default
-   * row for it. This filter is applied inside the ERPNext queries, so Items of other companies are
-   * never read in detail, priced, imaged or listed — to the user they simply do not exist.
+   * Company scope (ERPNEXT_COMPANY). An Item belongs to the company when:
+   *   1. it has an Item Default row for the company, or
+   *   2. it has NO Item Default rows at all and its item group is inside the company's group tree
+   *      (ERPNEXT_COMPANY_ITEM_GROUP) — new Items often have no defaults yet.
+   * An Item whose defaults name only other companies never belongs to it.
+   *
+   * Decided with list queries filtered inside ERPNext, so Items of other companies are never read
+   * in detail, priced, imaged or listed — to the user they simply do not exist.
+   * Returns null when no company scope is configured.
    */
-  const companyFilter = (): FrappeFilter[] => (config.company ? [['Item Default', 'company', '=', config.company]] : [])
-
-  /** Names of the company's Items that carry this barcode (null when no company scope is set). */
-  async function companyItemsWithBarcode(barcode: string): Promise<Set<string> | null> {
+  async function companyMembers(base: FrappeFilter[], limit: number): Promise<Set<string> | null> {
     if (!config.company) return null
+    const fallback = config.companyItemGroup !== null
+    const [own, withAnyDefault, candidates] = await Promise.all([
+      client.getList<{ name: string }>('Item', { fields: ['name'], filters: [...base, ['Item Default', 'company', '=', config.company]], limit }),
+      fallback
+        ? client.getList<{ name: string }>('Item', { fields: ['name'], filters: [...base, ['Item Default', 'company', 'is', 'set']], limit })
+        : Promise.resolve([]),
+      fallback
+        ? client.getList<{ name: string; item_group?: string | null }>('Item', { fields: ['name', 'item_group'], filters: base, limit })
+        : Promise.resolve([]),
+    ])
+    const members = new Set(own.map((row) => row.name))
+    const assigned = new Set(withAnyDefault.map((row) => row.name))
+    for (const row of candidates) {
+      if (!members.has(row.name) && !assigned.has(row.name) && (await deps.companyGroups.isAllowed(row.item_group ?? null))) {
+        members.add(row.name)
+      }
+    }
+    return members
+  }
+
+  /** The same rule applied to an Item document already read (defence in depth). */
+  async function docBelongsToCompany(doc: ItemDoc): Promise<boolean> {
+    if (!config.company) return true
+    const companies = (doc.item_defaults ?? []).map((row) => row.company).filter(Boolean)
+    if (companies.includes(config.company)) return true
+    if (companies.length > 0 || config.companyItemGroup === null) return false
+    return deps.companyGroups.isAllowed(doc.item_group ?? null)
+  }
+
+  async function companyItemsWithBarcode(barcode: string): Promise<Set<string> | null> {
     const schema = await deps.schema.get()
-    const rows = await client.getList<{ name: string }>('Item', {
-      fields: ['name'],
-      filters: [[schema.barcodeDoctype, 'barcode', '=', barcode], ...companyFilter()],
-      limit: MAX_MATCH_ROWS,
-    })
-    return new Set(rows.map((row) => row.name))
+    return companyMembers([[schema.barcodeDoctype, 'barcode', '=', barcode]], MAX_MATCH_ROWS)
   }
 
   async function findByItemCode(code: string): Promise<boolean> {
-    const rows = await client.getList<{ name: string }>('Item', {
-      fields: ['name'],
-      filters: [['name', '=', code], ...companyFilter()],
-      limit: 5,
-    })
+    const members = await companyMembers([['name', '=', code]], 5)
+    if (members) return members.has(code)
+    const rows = await client.getList<{ name: string }>('Item', { fields: ['name'], filters: [['name', '=', code]], limit: 5 })
     return rows.some((row) => row.name === code)
   }
 
@@ -188,7 +216,7 @@ export function createProductLookupService(deps: {
       // Item and its prices are independent reads: fetch them in parallel.
       const [doc, priceFor] = await Promise.all([getItem(chosen), deps.pricing.prepare(chosen)])
       // Defence in depth: the document itself must also belong to the configured company.
-      if (config.company && !doc.item_defaults?.some((row) => row.company === config.company)) throw notFound()
+      if (!(await docBelongsToCompany(doc))) throw notFound()
       if (!(await deps.scope.isAllowed(doc.item_group ?? null))) {
         throw new AppError('ITEM_OUT_OF_SCOPE', 404, 'This barcode belongs to a product outside the item groups this scanner covers.')
       }
@@ -220,13 +248,16 @@ export function createProductLookupService(deps: {
     },
 
     async warmUp() {
-      await Promise.all([deps.schema.get(), deps.pricing.warmUp(), deps.scope.warmUp()])
+      await Promise.all([deps.schema.get(), deps.pricing.warmUp(), deps.scope.warmUp(), deps.companyGroups.warmUp()])
     },
 
     async getImage(code) {
+      // Company check first: another company's Item is not even looked at.
+      const members = await companyMembers([['name', '=', code]], 5)
+      if (members && !members.has(code)) throw new AppError('IMAGE_NOT_AVAILABLE', 404, 'No image is available for this product.')
       const rows = await client.getList<{ name: string; image?: string | null; item_group?: string | null }>('Item', {
         fields: ['name', 'image', 'item_group'],
-        filters: [['name', '=', code], ...companyFilter()],
+        filters: [['name', '=', code]],
         limit: 5,
       })
       const row = rows.find((r) => r.name === code)

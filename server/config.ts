@@ -21,6 +21,12 @@ export interface ErpNextConfig {
    * (Item → Item Defaults → Company) can be looked up. Null = all companies.
    */
   company: string | null
+  /**
+   * Item-group tree that marks the company's catalogue (default: a group named like the company).
+   * Items with NO Item Defaults at all belong to the company when their group is inside this tree;
+   * Items whose defaults name another company never do. Null disables this fallback.
+   */
+  companyItemGroup: string | null
   /** Optional item-group allowlist (descendant groups included). Empty = all groups. */
   itemGroups: string[]
   /** Extra Item fields (standard or custom) shown in the product details panel. */
@@ -130,6 +136,12 @@ function collectErpNext(env: Env, isProduction: boolean, problems: string[]): Er
     allowBuyingPriceList: bool(env, 'ERPNEXT_ALLOW_BUYING_PRICE_LIST', false, problems),
     timeoutMs: int(env, 'ERPNEXT_TIMEOUT_MS', 10000, 500, 60000, problems),
     company: env.ERPNEXT_COMPANY?.trim() || null,
+    companyItemGroup: (() => {
+      const company = env.ERPNEXT_COMPANY?.trim()
+      const group = env.ERPNEXT_COMPANY_ITEM_GROUP?.trim()
+      if (!company || group?.toLowerCase() === 'none') return null
+      return group || company
+    })(),
     itemGroups: list(env.ERPNEXT_ITEM_GROUPS),
     metadataFields,
     disabledItemPolicy: policy,

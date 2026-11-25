@@ -55,6 +55,7 @@ export function createApp({ config, logger, fetchImpl, today, warmUp = false }: 
       today,
     }),
     scope: createItemGroupScope(client, config.erpnext.itemGroups, logger),
+    companyGroups: createItemGroupScope(client, config.erpnext.companyItemGroup ? [config.erpnext.companyItemGroup] : [], logger),
     config: config.erpnext,
     logger,
   })

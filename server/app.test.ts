@@ -509,3 +509,53 @@ describe('company scope (ERPNEXT_COMPANY)', () => {
     expect(JSON.parse(scopedCall!.url.searchParams.get('filters')!)).toContainEqual(['Item Default', 'company', '=', 'Al Esnad'])
   })
 })
+
+describe('company scope: items with no Item Defaults (ERPNEXT_COMPANY_ITEM_GROUP)', () => {
+  let erp: FakeErpNext
+  const scoped = (companyItemGroup: string | null = 'Devices') =>
+    build(erp, testConfig({ erpnext: { company: 'Al Esnad', companyItemGroup, matchItemCode: true } }))
+  const lookup = (app: ReturnType<typeof build>, query: string) => request(app).get(`/api/items/lookup?${query}`).set(bearer())
+  const add = (name: string, group: string, barcode: string, defaults?: string[]) => {
+    erp.data.items.push({ name, item_name: name, item_group: group, stock_uom: 'Nos', ...(defaults ? { item_defaults: defaults.map((company) => ({ company })) } : {}) })
+    erp.data.barcodes.push({ name: `bc-${name}`, parent: name, parenttype: 'Item', parentfield: 'barcodes', barcode, idx: 1 })
+  }
+
+  beforeEach(() => {
+    erp = createFakeErpNext()
+    add('NEW-PHONE', 'Phones', '1111111111111') // no defaults, inside the Devices tree
+    add('NEW-ACCESSORY', 'Accessories', '2222222222222') // no defaults, outside the tree
+    add('OTHER-IN-TREE', 'Phones', '3333333333333', ['Other Co']) // another company's item placed in the tree
+    add('OWN-OUTSIDE', 'Accessories', '4444444444444', ['Al Esnad']) // own default, any group
+  })
+
+  it('finds a new item that has no Item Defaults yet when its group is in the company tree', async () => {
+    const res = await lookup(scoped(), 'barcode=1111111111111')
+    expect(res.status).toBe(200)
+    expect((res.body as ApiSuccess<Product>).data.itemCode).toBe('NEW-PHONE')
+  })
+
+  it('hides items without defaults outside the company tree', async () => {
+    expect((await lookup(scoped(), 'barcode=2222222222222')).status).toBe(404)
+  })
+
+  it('never shows another company’s item, even inside the company tree', async () => {
+    const res = await lookup(scoped(), 'barcode=3333333333333')
+    expect(res.status).toBe(404)
+    expect((res.body as ApiFailure).error.code).toBe('ITEM_NOT_FOUND')
+    expect(erp.calls.some((c) => decodeURIComponent(c.url.pathname) === '/api/resource/Item/OTHER-IN-TREE')).toBe(false)
+  })
+
+  it('always accepts the company’s own Item Default, whatever the group', async () => {
+    expect((await lookup(scoped(), 'barcode=4444444444444')).status).toBe(200)
+  })
+
+  it('applies the same rule to item-code matches', async () => {
+    expect((await lookup(scoped(), 'barcode=NEW-PHONE')).status).toBe(200)
+    expect((await lookup(scoped(), 'barcode=OTHER-IN-TREE')).status).toBe(404)
+  })
+
+  it('requires an Item Default when the fallback is disabled (ERPNEXT_COMPANY_ITEM_GROUP=none)', async () => {
+    expect((await lookup(scoped(null), 'barcode=1111111111111')).status).toBe(404)
+    expect((await lookup(scoped(null), 'barcode=4444444444444')).status).toBe(200)
+  })
+})

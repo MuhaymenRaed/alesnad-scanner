@@ -19,6 +19,7 @@ export function testConfig(overrides: { erpnext?: Partial<AppConfig['erpnext']>;
       allowBuyingPriceList: false,
       timeoutMs: 200,
       company: null,
+      companyItemGroup: null,
       itemGroups: [],
       metadataFields: ['country_of_origin', 'custom_color', 'valuation_rate'],
       disabledItemPolicy: 'warn',
