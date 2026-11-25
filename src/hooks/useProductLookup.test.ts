@@ -88,14 +88,35 @@ describe('useProductLookup', () => {
     expect(hook.result.current.state).toMatchObject({ status: 'ambiguous', barcode: 'dup' })
   })
 
-  it('reviews a previous scan without a new request', async () => {
-    const { api, hook } = setup(async (barcode) => ({ ok: true, data: productFixture({ itemName: barcode }) }))
+  it('reviews a previous scan instantly, then re-reads it live from ERPNext', async () => {
+    let version = 1
+    const { api, hook } = setup(async (barcode) => ({ ok: true, data: productFixture({ itemName: `${barcode} v${version}` }) }))
     await act(() => hook.result.current.submit('first'))
-    await waitFor(() => expect(hook.result.current.state.status).toBe('found'))
     await act(() => hook.result.current.submit('second'))
+    version = 2 // the product was edited in ERPNext meanwhile
     act(() => hook.result.current.review(hook.result.current.recent[1]!))
+    const snapshot = hook.result.current.state
+    expect(snapshot.status === 'found' && snapshot.product.itemName).toBe('first v1')
+    await waitFor(() => {
+      const state = hook.result.current.state
+      expect(state.status === 'found' && state.product.itemName).toBe('first v2')
+    })
+    expect(api.lookup).toHaveBeenCalledTimes(3)
+    expect(hook.result.current.recent).toHaveLength(2) // refreshes never add entries
+  })
+
+  it('refresh() updates the product on screen without a loading state', async () => {
+    let price = 10
+    const { hook } = setup(async () => ({ ok: true, data: productFixture({ sellingPrice: price }) }))
+    await act(() => hook.result.current.submit('abc'))
+    price = 15
+    let refreshing: Promise<void> | undefined
+    act(() => {
+      refreshing = hook.result.current.refresh()
+    })
+    expect(hook.result.current.state.status).toBe('found')
+    await act(() => refreshing!)
     const state = hook.result.current.state
-    expect(state.status === 'found' && state.product.itemName).toBe('first')
-    expect(api.lookup).toHaveBeenCalledTimes(2)
+    expect(state.status === 'found' && state.product.sellingPrice).toBe(15)
   })
 })

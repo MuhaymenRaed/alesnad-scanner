@@ -232,7 +232,8 @@ export function createProductLookupService(deps: {
         barcodeRow: matchedBy === 'barcode' ? ownRow : null,
         matchedBy,
         schema: await deps.schema.get(),
-        metadataFields: config.metadataFields,
+        metadataFields: config.metadataFields.filter((field) => !config.itemNameFields.includes(field)),
+        itemNameFields: config.itemNameFields,
         baseUrl: config.baseUrl,
       })
 

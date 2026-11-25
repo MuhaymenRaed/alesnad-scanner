@@ -125,12 +125,16 @@ export function normalizeProduct(input: {
   matchedBy: Product['matchedBy']
   schema: ErpSchema
   metadataFields: string[]
+  /** Fields tried in order for the title; denied/missing/empty ones are skipped. */
+  itemNameFields?: string[]
   baseUrl: string
 }): Omit<Product, 'price' | 'sellingPrice' | 'currency' | 'priceList'> {
   const { doc, barcodeRow } = input
   const itemCode = text(doc.item_code) ?? doc.name
   const description = typeof doc.description === 'string' ? htmlToText(doc.description) : null
-  const itemName = text(doc.item_name) ?? itemCode
+  const erpName = text(doc.item_name) ?? itemCode
+  const titleField = (input.itemNameFields ?? ['item_name']).find((field) => !isFieldDenied(field) && text(doc[field]))
+  const itemName = titleField ? htmlToText(text(doc[titleField])!) || erpName : erpName
 
   const uomConversions: UomConversion[] = (doc.uoms ?? [])
     .filter((row) => text(row.uom) && typeof row.conversion_factor === 'number')
@@ -144,6 +148,7 @@ export function normalizeProduct(input: {
   return {
     itemCode,
     itemName,
+    erpItemName: erpName !== itemName ? erpName : null,
     matchedBy: input.matchedBy,
     barcode: barcodeRow?.barcode ?? null,
     barcodeType: text(barcodeRow?.barcode_type),
@@ -151,7 +156,7 @@ export function normalizeProduct(input: {
     uom: requestedUomFor(doc, barcodeRow),
     stockUom: text(doc.stock_uom),
     // Don't repeat the name as a "description" (common when descriptions are auto-filled).
-    description: description && description !== itemName ? description : null,
+    description: description && description !== itemName && description !== erpName ? description : null,
     itemGroup: text(doc.item_group),
     brand: text(doc.brand),
     hasImage: resolveImagePath(doc.image, input.baseUrl) !== null,

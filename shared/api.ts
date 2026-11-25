@@ -105,7 +105,10 @@ export interface UomConversion {
 
 export interface Product {
   itemCode: string
+  /** Title shown to staff: the first non-empty ITEM_NAME_FIELDS value (e.g. Arabic name), else item_name. */
   itemName: string
+  /** ERPNext item_name, when it differs from itemName (shown as a secondary line). */
+  erpItemName: string | null
   /** How the scan was matched: the Item Barcode table, or (opt-in) an exact Item Code match. */
   matchedBy: 'barcode' | 'item_code'
   /** The barcode exactly as stored in ERPNext (null when matched by item code). */

@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import type { AmbiguousCandidate } from '../../shared/api'
 import { StatusMessage } from './StatusMessage'
 import { card } from './ui'
@@ -7,8 +7,8 @@ import { card } from './ui'
 export function AmbiguousMatches(props: { barcode: string; candidates: AmbiguousCandidate[]; onChoose(itemCode: string): void }) {
   return (
     <div className="space-y-3">
-      <StatusMessage tone="warning" title="This barcode matches more than one product">
-        Barcode <span className="font-mono">{props.barcode}</span> is assigned to {props.candidates.length} items in ERPNext. Choose the correct product, and ask an administrator to fix the duplicate barcode.
+      <StatusMessage tone="warning" title="هذا الباركود مرتبط بأكثر من منتج">
+        الباركود <span dir="ltr" className="font-mono">{props.barcode}</span> مسجّل على {props.candidates.length} منتجات في النظام. اختر المنتج الصحيح، واطلب من المسؤول تصحيح الباركود المكرر.
       </StatusMessage>
       <ul className={`divide-y divide-line overflow-hidden ${card}`}>
         {props.candidates.map((candidate) => (
@@ -18,18 +18,20 @@ export function AmbiguousMatches(props: { barcode: string; candidates: Ambiguous
                 <span className="block font-bold">
                   <bdi>{candidate.itemName}</bdi>
                 </span>
-                <span className="block font-mono text-sm text-muted">
-                  {candidate.itemCode}
+                <span className="block text-sm text-muted">
+                  <span dir="ltr" className="font-mono">
+                    {candidate.itemCode}
+                  </span>
                   {candidate.itemGroup && (
-                    <span className="font-sans">
+                    <>
                       {' '}
                       · <bdi>{candidate.itemGroup}</bdi>
-                    </span>
+                    </>
                   )}
                 </span>
               </span>
-              {candidate.disabled && <span className="rounded-chip bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger">Disabled</span>}
-              <ChevronRight className="size-5 text-muted rtl:rotate-180" aria-hidden />
+              {candidate.disabled && <span className="rounded-chip bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger">معطّل</span>}
+              <ChevronLeft className="size-5 text-muted ltr:rotate-180" aria-hidden />
             </button>
           </li>
         ))}

@@ -31,6 +31,8 @@ export interface ErpNextConfig {
   itemGroups: string[]
   /** Extra Item fields (standard or custom) shown in the product details panel. */
   metadataFields: string[]
+  /** Item fields tried in order for the product title (e.g. an Arabic name field, then item_name). */
+  itemNameFields: string[]
   disabledItemPolicy: DisabledItemPolicy
   /** Opt-in: when no barcode matches, try an exact Item Code match. */
   matchItemCode: boolean
@@ -127,6 +129,9 @@ function collectErpNext(env: Env, isProduction: boolean, problems: string[]): Er
   const invalidField = metadataFields.find((field) => !/^[a-z][a-z0-9_]*$/.test(field))
   if (invalidField !== undefined) problems.push('ITEM_METADATA_FIELDS must be a comma-separated list of ERPNext fieldnames.')
 
+  const itemNameFields = env.ITEM_NAME_FIELDS === undefined ? ['item_name'] : list(env.ITEM_NAME_FIELDS)
+  if (itemNameFields.some((field) => !/^[a-z][a-z0-9_]*$/.test(field))) problems.push('ITEM_NAME_FIELDS must be a comma-separated list of ERPNext fieldnames.')
+
   const policy = (env.DISABLED_ITEM_POLICY?.trim().toLowerCase() || 'warn') as DisabledItemPolicy
   if (policy !== 'warn' && policy !== 'reject') problems.push('DISABLED_ITEM_POLICY must be "warn" or "reject".')
 
@@ -146,6 +151,7 @@ function collectErpNext(env: Env, isProduction: boolean, problems: string[]): Er
     })(),
     itemGroups: list(env.ERPNEXT_ITEM_GROUPS),
     metadataFields,
+    itemNameFields,
     disabledItemPolicy: policy,
     matchItemCode: bool(env, 'LOOKUP_MATCH_ITEM_CODE', false, problems),
   }

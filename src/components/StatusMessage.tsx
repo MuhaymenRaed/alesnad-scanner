@@ -6,27 +6,27 @@ const TONES: Record<Tone | 'loading', { box: string; icon: ReactNode; label: str
   info: {
     box: 'border-info/35 bg-info/8',
     icon: <Info className="size-5 shrink-0 text-info" aria-hidden />,
-    label: 'Information',
+    label: 'معلومة',
   },
   success: {
     box: 'border-success/35 bg-success/8',
     icon: <CheckCircle2 className="size-5 shrink-0 text-success" aria-hidden />,
-    label: 'Success',
+    label: 'تم',
   },
   warning: {
     box: 'border-warning/40 bg-warning/8',
     icon: <AlertTriangle className="size-5 shrink-0 text-warning" aria-hidden />,
-    label: 'Warning',
+    label: 'تنبيه',
   },
   error: {
     box: 'border-danger/35 bg-danger/8',
     icon: <XCircle className="size-5 shrink-0 text-danger" aria-hidden />,
-    label: 'Error',
+    label: 'خطأ',
   },
   loading: {
     box: 'border-line bg-surface',
     icon: <Loader2 className="size-5 shrink-0 text-brand motion-safe:animate-spin" aria-hidden />,
-    label: 'Working',
+    label: 'جارٍ العمل',
   },
 }
 

@@ -190,7 +190,8 @@ export function createPricingService(deps: {
       else if (!flag(doc.selling)) status = { kind: 'problem', reason: 'NOT_A_SELLING_PRICE_LIST' }
       else if (flag(doc.buying) && !allowBuyingPriceList) status = { kind: 'problem', reason: 'PRICE_LIST_IS_BUYING_LIST' }
       if (status.kind === 'problem') logger.warn('configured price list cannot be used', { reason: status.reason })
-      return { value: status, ttlMs: 5 * 60 * 1000 }
+      // Short TTL: enabling/disabling the price list in ERPNext shows up within a minute.
+      return { value: status, ttlMs: 60 * 1000 }
     } catch (error) {
       if (error instanceof ErpNextError && error.kind === 'not_found') {
         logger.error('configured price list does not exist in ERPNext')

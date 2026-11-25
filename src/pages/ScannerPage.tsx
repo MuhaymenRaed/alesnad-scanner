@@ -24,7 +24,7 @@ function isEditable(element: Element | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (element as HTMLElement).isContentEditable
 }
 
-function ResultArea(props: { state: LookupState; api: ApiClient; onChoose(itemCode: string): void; onSignInAgain(): void }) {
+function ResultArea(props: { state: LookupState; api: ApiClient; onChoose(itemCode: string): void; onSignInAgain(): void; onRefresh(): void }) {
   const { state } = props
   switch (state.status) {
     case 'idle':
@@ -33,20 +33,18 @@ function ResultArea(props: { state: LookupState; api: ApiClient; onChoose(itemCo
           <span className="flex size-16 items-center justify-center rounded-full bg-charcoal text-white">
             <ScanBarcode className="size-8" aria-hidden />
           </span>
-          <p className="text-xl font-extrabold tracking-[-0.02em]">
-            Ready to scan <span lang="ar" className="font-semibold text-muted">· جاهز للمسح</span>
-          </p>
-          <p className="max-w-sm text-sm text-muted">Scan a product barcode, or type it into the barcode field and press Enter.</p>
+          <p className="text-xl font-extrabold">جاهز للمسح</p>
+          <p className="max-w-sm text-sm text-muted">امسح باركود المنتج أو اكتبه في حقل الباركود ليظهر الاسم والسعر فوراً.</p>
         </div>
       )
     case 'loading':
       return (
-        <StatusMessage tone="loading" title="Looking up product…">
-          Barcode <span className="font-mono">{state.barcode}</span>
+        <StatusMessage tone="loading" title="جارٍ البحث عن المنتج…">
+          الباركود <span dir="ltr" className="font-mono">{state.barcode}</span>
         </StatusMessage>
       )
     case 'found':
-      return <ProductDetails product={state.product} api={props.api} />
+      return <ProductDetails product={state.product} api={props.api} fetchedAt={state.fetchedAt} onRefresh={props.onRefresh} />
     case 'ambiguous':
       return <AmbiguousMatches barcode={state.barcode} candidates={state.candidates} onChoose={props.onChoose} />
     case 'error': {
@@ -59,18 +57,22 @@ function ResultArea(props: { state: LookupState; api: ApiClient; onChoose(itemCo
           action={
             needsSignIn ? (
               <button type="button" className={primaryButton} onClick={props.onSignInAgain}>
-                Sign in again
+                تسجيل الدخول مجدداً
               </button>
             ) : undefined
           }
         >
           {state.barcode && (
             <p>
-              Barcode <span className="font-mono">{state.barcode}</span>
+              الباركود <span dir="ltr" className="font-mono">{state.barcode}</span>
             </p>
           )}
-          <p>{state.error.code === 'INVALID_BARCODE' ? state.error.message : copy.hint}</p>
-          {state.error.requestId && <p className="mt-1 text-xs opacity-75">Reference: {state.error.requestId}</p>}
+          <p>{copy.hint}</p>
+          {state.error.requestId && (
+            <p className="mt-1 text-xs opacity-75">
+              رقم المرجع: <span dir="ltr">{state.error.requestId}</span>
+            </p>
+          )}
         </StatusMessage>
       )
     }
@@ -81,7 +83,7 @@ export function ScannerPage() {
   const api = useApiClient()
   const { signOut } = useClerk()
   const location = useLocation()
-  const { state, recent, submit, review, clearRecent } = useProductLookup(api)
+  const { state, recent, submit, refresh, review, clearRecent } = useProductLookup(api)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [activeId, setActiveId] = useState<number | null>(null)
   const inputRef = useRef<BarcodeInputHandle>(null)
@@ -96,11 +98,31 @@ export function ScannerPage() {
     if (state.status === 'error' && state.error.code === 'SESSION_ENDED') signInAgain()
   }, [state, signInAgain])
 
-  // Newest scan becomes the highlighted entry.
+  // A NEW scan becomes the highlighted entry (live refreshes update entries in place and must not move it).
+  const newestId = recent[0]?.id ?? null
+  const [seenNewestId, setSeenNewestId] = useState(newestId)
+  if (seenNewestId !== newestId) {
+    setSeenNewestId(newestId)
+    setActiveId(newestId)
+  }
+
+  // Live data: re-read the product on screen when the app comes back to the foreground and every
+  // 20 s while it is visible, so edits made in ERPNext (name, price…) show up by themselves.
+  const showingProduct = state.status === 'found'
   useEffect(() => {
-    if (state.status !== 'loading' && state.status !== 'idle') setActiveId(recent[0]?.id ?? null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recent])
+    if (!showingProduct) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refresh()
+    }
+    const interval = window.setInterval(onVisible, 20_000)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [showingProduct, refresh])
 
   // After each lookup, put the cursor back in the barcode field (unless the user is busy elsewhere)
   // so the next hardware scan needs no mouse interaction.
@@ -177,7 +199,7 @@ export function ScannerPage() {
           <div ref={scanRef} className="order-1 scroll-mt-24 space-y-4 lg:shrink-0">
             <BarcodeInput ref={inputRef} loading={loading} cameraOpen={cameraOpen} onSubmit={lookup} onToggleCamera={() => setCameraOpen((open) => !open)} />
             {cameraOpen && (
-              <Suspense fallback={<StatusMessage tone="loading" title="Starting camera scanner…" />}>
+              <Suspense fallback={<StatusMessage tone="loading" title="جارٍ تجهيز ماسح الكاميرا…" />}>
                 <CameraScanner paused={loading} onDetected={onCameraDetected} />
               </Suspense>
             )}
@@ -197,7 +219,7 @@ export function ScannerPage() {
 
         <section
           ref={resultRef}
-          aria-label="Lookup result"
+          aria-label="نتيجة البحث"
           aria-live="polite"
           aria-busy={loading}
           className="order-2 scroll-mt-24 lg:col-start-2 lg:row-start-1"
@@ -207,6 +229,7 @@ export function ScannerPage() {
             api={api}
             onChoose={(itemCode) => lastBarcode && void submit(lastBarcode, { itemCode })}
             onSignInAgain={signInAgain}
+            onRefresh={() => void refresh()}
           />
         </section>
       </main>
@@ -217,7 +240,7 @@ export function ScannerPage() {
           onClick={scanNext}
           className="fixed end-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 inline-flex min-h-14 animate-rise items-center gap-2 rounded-full bg-brand-fill ps-5 pe-6 text-base font-extrabold text-white shadow-lg shadow-black/25 hover:bg-brand-fill-hover lg:hidden"
         >
-          <ScanBarcode className="size-5" aria-hidden /> Scan next
+          <ScanBarcode className="size-5" aria-hidden /> مسح التالي
         </button>
       )}
     </div>

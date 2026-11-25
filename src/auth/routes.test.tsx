@@ -37,7 +37,7 @@ describe('protected routes', () => {
 
   it('shows a loading screen and no protected content while Clerk resolves the session', () => {
     renderAt('/')
-    expect(screen.getByText('Checking your session…')).toBeInTheDocument()
+    expect(screen.getByText('جارٍ التحقق من الجلسة…')).toBeInTheDocument()
     expect(screen.queryByText('Scanner content')).not.toBeInTheDocument()
   })
 
@@ -46,7 +46,7 @@ describe('protected routes', () => {
     renderAt('/?barcode=123')
     expect(screen.queryByText('Scanner content')).not.toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent('/sign-in?redirect_url=%2F%3Fbarcode%3D123')
-    expect(screen.getByRole('heading', { name: 'Staff sign in' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'تسجيل دخول الموظفين' })).toBeInTheDocument()
   })
 
   it('renders the scanner for a signed-in user', () => {
@@ -74,7 +74,7 @@ describe('protected routes', () => {
       </MemoryRouter>,
     )
     expect(screen.queryByText('Scanner content')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Staff sign in' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'تسجيل دخول الموظفين' })).toBeInTheDocument()
   })
 })
 

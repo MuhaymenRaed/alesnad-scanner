@@ -5,6 +5,7 @@ export function productFixture(overrides: Partial<Product> = {}): Product {
   return {
     itemCode: 'ITEM-0001',
     itemName: 'Example Phone',
+    erpItemName: null,
     matchedBy: 'barcode',
     barcode: '0123456789012',
     barcodeType: 'EAN',

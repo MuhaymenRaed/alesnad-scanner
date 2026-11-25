@@ -23,6 +23,7 @@ export function testConfig(overrides: { erpnext?: Partial<AppConfig['erpnext']>;
       companyItemGroup: null,
       itemGroups: [],
       metadataFields: ['country_of_origin', 'custom_color', 'valuation_rate'],
+      itemNameFields: ['item_name'],
       disabledItemPolicy: 'warn',
       matchItemCode: false,
       ...overrides.erpnext,

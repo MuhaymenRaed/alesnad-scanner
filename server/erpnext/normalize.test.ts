@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildMetadata, htmlToText, isFieldDenied, requestedUomFor, resolveImagePath, type ItemDoc } from './normalize.js'
+import { buildMetadata, htmlToText, isFieldDenied, normalizeProduct, requestedUomFor, resolveImagePath, type ItemDoc } from './normalize.js'
 import { defaultSchema, parseSchema } from './schema.js'
 
 describe('htmlToText', () => {
@@ -89,5 +89,22 @@ describe('parseSchema', () => {
 
   it('throws when Item has no barcode table (caller falls back to defaults)', () => {
     expect(() => parseSchema({ docs: [{ name: 'Item', fields: [] }] }, null)).toThrow()
+  })
+})
+
+describe('product title (ITEM_NAME_FIELDS)', () => {
+  const base = { schema: defaultSchema(), metadataFields: [], baseUrl: 'https://erp.example.com', matchedBy: 'barcode' as const, barcodeRow: null }
+  const fields = ['custom_arabic_item_name', 'custom_srep_display_name', 'item_name']
+
+  it('uses the first non-empty configured field and keeps item_name as the secondary line', () => {
+    const doc: ItemDoc = { name: 'BT-1', item_name: 'barcodetest', custom_srep_display_name: 'EARPHONES SN-02', custom_arabic_item_name: '' }
+    expect(normalizeProduct({ ...base, doc, itemNameFields: fields })).toMatchObject({ itemName: 'EARPHONES SN-02', erpItemName: 'barcodetest' })
+    const arabic: ItemDoc = { ...doc, custom_arabic_item_name: 'سماعة خب SN-02' }
+    expect(normalizeProduct({ ...base, doc: arabic, itemNameFields: fields })).toMatchObject({ itemName: 'سماعة خب SN-02', erpItemName: 'barcodetest' })
+  })
+
+  it('falls back to item_name, with no secondary line when they are the same', () => {
+    const doc: ItemDoc = { name: 'X', item_name: 'Plain name' }
+    expect(normalizeProduct({ ...base, doc, itemNameFields: fields })).toMatchObject({ itemName: 'Plain name', erpItemName: null })
   })
 })

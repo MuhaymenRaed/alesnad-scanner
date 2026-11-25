@@ -18,9 +18,8 @@ createRoot(document.getElementById('root')!).render(
         </ClerkProviderWithRouter>
       </BrowserRouter>
     ) : (
-      <FullPageState title="Sign-in is not configured">
-        Set <code className="font-mono">VITE_CLERK_PUBLISHABLE_KEY</code> in <code className="font-mono">.env</code> (see{' '}
-        <code className="font-mono">.env.example</code>) and restart the development server.
+      <FullPageState title="تسجيل الدخول غير مُعدّ">
+        أضف <code dir="ltr" className="font-mono">VITE_CLERK_PUBLISHABLE_KEY</code> إلى ملف <code dir="ltr" className="font-mono">.env</code> ثم أعد تشغيل الخادم.
       </FullPageState>
     )}
   </StrictMode>,

@@ -23,7 +23,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (!isLoaded) {
     if (confirmedSignedIn) return <>{children}</>
-    return <FullPageState title="Checking your session…" loading />
+    return <FullPageState title="جارٍ التحقق من الجلسة…" loading />
   }
 
   if (!isSignedIn) {

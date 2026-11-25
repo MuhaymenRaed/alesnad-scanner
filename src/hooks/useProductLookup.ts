@@ -6,7 +6,7 @@ import { isAbortError, type ApiClient } from '../lib/api'
 export type LookupState =
   | { status: 'idle' }
   | { status: 'loading'; barcode: string }
-  | { status: 'found'; barcode: string; product: Product }
+  | { status: 'found'; barcode: string; product: Product; itemCode?: string; fetchedAt: number }
   | { status: 'ambiguous'; barcode: string; candidates: AmbiguousCandidate[] }
   | { status: 'error'; barcode: string | null; error: ApiError }
 
@@ -14,7 +14,7 @@ export interface ScanRecord {
   id: number
   barcode: string
   at: Date
-  /** Snapshot of the final state for this scan, so it can be reviewed without a new request. */
+  /** Latest known result for this scan (kept fresh by live refreshes). */
   result: Exclude<LookupState, { status: 'idle' } | { status: 'loading' }>
 }
 
@@ -26,11 +26,16 @@ export function useProductLookup(api: Pick<ApiClient, 'lookup'>) {
   const [state, setState] = useState<LookupState>({ status: 'idle' })
   const [recent, setRecent] = useState<ScanRecord[]>([])
 
+  const stateRef = useRef(state)
   const latestRequest = useRef(0)
   const controller = useRef<AbortController | null>(null)
   const inFlightKey = useRef<string | null>(null)
   const lastSubmit = useRef<{ key: string; at: number } | null>(null)
+  const activeRecordId = useRef<number | null>(null)
 
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
   useEffect(() => () => controller.current?.abort(), [])
 
   const submit = useCallback(
@@ -63,7 +68,7 @@ export function useProductLookup(api: Pick<ApiClient, 'lookup'>) {
       try {
         const result = await api.lookup(barcode, options.itemCode, abort.signal)
         if (requestId !== latestRequest.current) return
-        if (result.ok) next = { status: 'found', barcode, product: result.data }
+        if (result.ok) next = { status: 'found', barcode, product: result.data, itemCode: options.itemCode, fetchedAt: Date.now() }
         else if (result.error.code === 'AMBIGUOUS_BARCODE' && result.error.candidates?.length)
           next = { status: 'ambiguous', barcode, candidates: result.error.candidates }
         else next = { status: 'error', barcode, error: result.error }
@@ -74,21 +79,57 @@ export function useProductLookup(api: Pick<ApiClient, 'lookup'>) {
         if (requestId === latestRequest.current) inFlightKey.current = null
       }
 
+      activeRecordId.current = requestId
       setState(next)
       setRecent((list) => [{ id: requestId, barcode, at: new Date(), result: next }, ...list].slice(0, MAX_RECENT))
     },
     [api],
   )
 
-  /** Show a previous scan's result again (no new request). */
-  const review = useCallback((record: ScanRecord) => {
+  /**
+   * Re-reads the product on screen from ERPNext without a loading flash, so edits made in ERPNext
+   * (name, price…) appear by themselves. Network hiccups keep the current data; a product that no
+   * longer exists switches to the error state.
+   */
+  const refresh = useCallback(async () => {
+    const current = stateRef.current
+    if (current.status !== 'found' || inFlightKey.current) return
+    const abort = new AbortController()
     controller.current?.abort()
-    latestRequest.current++
-    inFlightKey.current = null
-    setState(record.result)
-  }, [])
+    controller.current = abort
+    const requestId = ++latestRequest.current
+    try {
+      const result = await api.lookup(current.barcode, current.itemCode, abort.signal)
+      if (requestId !== latestRequest.current) return
+      let next: ScanRecord['result'] | null = null
+      if (result.ok) next = { ...current, product: result.data, fetchedAt: Date.now() }
+      else if (['ITEM_NOT_FOUND', 'ITEM_DISABLED', 'ITEM_OUT_OF_SCOPE'].includes(result.error.code)) {
+        next = { status: 'error', barcode: current.barcode, error: result.error }
+      }
+      if (!next) return
+      setState(next)
+      const recordId = activeRecordId.current
+      setRecent((list) => list.map((record) => (record.id === recordId ? { ...record, result: next } : record)))
+    } catch {
+      // Aborted or offline: keep showing the last good data.
+    }
+  }, [api])
+
+  /** Show a previous scan right away, then re-read it live from ERPNext. */
+  const review = useCallback(
+    (record: ScanRecord) => {
+      controller.current?.abort()
+      latestRequest.current++
+      inFlightKey.current = null
+      activeRecordId.current = record.id
+      stateRef.current = record.result
+      setState(record.result)
+      if (record.result.status === 'found') void refresh()
+    },
+    [refresh],
+  )
 
   const clearRecent = useCallback(() => setRecent([]), [])
 
-  return { state, recent, submit, review, clearRecent }
+  return { state, recent, submit, refresh, review, clearRecent }
 }

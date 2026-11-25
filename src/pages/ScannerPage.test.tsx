@@ -26,10 +26,10 @@ function renderPage() {
       <ScannerPage />
     </MemoryRouter>,
   )
-  return { input: screen.getByRole('textbox', { name: /^Barcode ·/ }), user: userEvent.setup() }
+  return { input: screen.getByRole('textbox', { name: 'الباركود' }), user: userEvent.setup() }
 }
 
-const result = () => screen.getByRole('region', { name: 'Lookup result' })
+const result = () => screen.getByRole('region', { name: 'نتيجة البحث' })
 
 describe('ScannerPage', () => {
   beforeEach(() => {
@@ -41,7 +41,7 @@ describe('ScannerPage', () => {
     const { input } = renderPage()
     expect(screen.getByText('Test User')).toBeInTheDocument()
     expect(input).toHaveFocus()
-    expect(screen.getByText('Ready to scan')).toBeInTheDocument()
+    expect(screen.getByText('جاهز للمسح')).toBeInTheDocument()
   })
 
   it('looks up on Enter (one request, not per keystroke), shows loading, then the product and price', async () => {
@@ -52,13 +52,13 @@ describe('ScannerPage', () => {
     await user.type(input, '0123456789012{Enter}')
     expect(lookup).toHaveBeenCalledTimes(1)
     expect(lookup).toHaveBeenCalledWith('0123456789012', undefined, expect.any(AbortSignal))
-    expect(within(result()).getByText('Looking up product…')).toBeInTheDocument()
+    expect(within(result()).getByText('جارٍ البحث عن المنتج…')).toBeInTheDocument()
 
     pending.resolve({ ok: true, data: productFixture() })
     expect(await within(result()).findByRole('heading', { name: 'Example Phone' })).toBeInTheDocument()
     const price = within(result()).getByTestId('price')
     expect(price).toHaveTextContent('12.50')
-    expect(price).toHaveTextContent('USD')
+    expect(price).toHaveTextContent('دولار')
     expect(price).toHaveTextContent('Standard Selling')
     expect(within(result()).getByText('ITEM-0001')).toBeInTheDocument()
     expect(within(result()).getByText('Device Color')).toBeInTheDocument()
@@ -78,7 +78,7 @@ describe('ScannerPage', () => {
     const { input, user } = renderPage()
     await user.type(input, '1{Enter}')
     const price = await within(result()).findByTestId('price')
-    expect(price).toHaveTextContent('No price available')
+    expect(price).toHaveTextContent('لا يوجد سعر')
     expect(price).not.toHaveTextContent(/\b0(\.00)?\b/)
   })
 
@@ -86,25 +86,25 @@ describe('ScannerPage', () => {
     lookup.mockResolvedValue({ ok: false, status: 404, error: { code: 'ITEM_NOT_FOUND', message: 'No product was found for this barcode.' } })
     const { input, user } = renderPage()
     await user.type(input, '999{Enter}')
-    expect(await within(result()).findByText('Product not found')).toBeInTheDocument()
-    const recent = screen.getByRole('region', { name: /recent scans/i })
+    expect(await within(result()).findByText('المنتج غير موجود')).toBeInTheDocument()
+    const recent = screen.getByRole('region', { name: /آخر عمليات المسح/ })
     expect(within(recent).getByText('999')).toBeInTheDocument()
-    expect(within(recent).getByText(/Not found/)).toBeInTheDocument()
+    expect(within(recent).getByText(/المنتج غير موجود/)).toBeInTheDocument()
   })
 
   it('shows ERPNext outages without crashing', async () => {
     lookup.mockResolvedValue({ ok: false, status: 504, error: { code: 'ERPNEXT_TIMEOUT', message: 'x', requestId: 'req-1' } })
     const { input, user } = renderPage()
     await user.type(input, '42{Enter}')
-    expect(await within(result()).findByText('ERPNext is taking too long')).toBeInTheDocument()
-    expect(within(result()).getByText('Reference: req-1')).toBeInTheDocument()
+    expect(await within(result()).findByText('النظام بطيء حالياً')).toBeInTheDocument()
+    expect(within(result()).getByText('req-1')).toBeInTheDocument()
   })
 
   it('offers sign-in again when the backend rejects the session, and signs out when the session ended', async () => {
     lookup.mockResolvedValueOnce({ ok: false, status: 401, error: { code: 'UNAUTHENTICATED', message: 'x' } })
     const { input, user } = renderPage()
     await user.type(input, '42{Enter}')
-    await user.click(await within(result()).findByRole('button', { name: 'Sign in again' }))
+    await user.click(await within(result()).findByRole('button', { name: 'تسجيل الدخول مجدداً' }))
     expect(signOut).toHaveBeenCalledWith({ redirectUrl: '/sign-in' })
 
     signOut.mockReset()

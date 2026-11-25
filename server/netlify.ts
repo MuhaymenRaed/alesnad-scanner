@@ -1,6 +1,7 @@
 import serverless from 'serverless-http'
 import { createApp } from './app.js'
 import { ConfigError, loadAppConfig } from './config.js'
+import { NETLIFY_BUSINESS_SETTINGS } from './deploySettings.js'
 import { createLogger } from './logger.js'
 
 /**
@@ -21,8 +22,9 @@ const NETLIFY_FUNCTION_LIMIT_MS = 8000
 type Env = Record<string, string | undefined>
 type Handler = ReturnType<typeof serverless>
 
-export function netlifyEnv(source: Env): Env {
-  const env: Env = { ...source }
+export function netlifyEnv(source: Env, settings: Readonly<Record<string, string>> = NETLIFY_BUSINESS_SETTINGS): Env {
+  // Versioned business settings win over the dashboard (see deploySettings.ts).
+  const env: Env = { ...source, ...settings }
   const origins = [env.FRONTEND_ORIGIN, env.URL, env.DEPLOY_PRIME_URL]
     .flatMap((value) => (value ?? '').split(','))
     .map((value) => value.trim())
@@ -36,10 +38,10 @@ export function netlifyEnv(source: Env): Env {
   return env
 }
 
-export function createNetlifyHandler(source: Env = process.env, fetchImpl?: typeof fetch): Handler {
+export function createNetlifyHandler(source: Env = process.env, fetchImpl?: typeof fetch, settings?: Readonly<Record<string, string>>): Handler {
   const logger = createLogger((source.LOG_LEVEL as 'info' | undefined) ?? 'info', { runtime: 'netlify' })
   try {
-    const config = loadAppConfig(netlifyEnv(source))
+    const config = loadAppConfig(netlifyEnv(source, settings))
     return serverless(createApp({ config, logger, fetchImpl }), {
       // Product images are binary and must be base64-encoded for the function response.
       binary: ['image/*'],
@@ -72,8 +74,12 @@ interface LambdaResult {
  * Adapter for Netlify Functions v2 (`export default (request: Request) => Response`): converts the
  * Web-standard Request into the event the Express wrapper expects, and the result back again.
  */
-export function createNetlifyWebHandler(source: Env = process.env, fetchImpl?: typeof fetch): (request: Request) => Promise<Response> {
-  const lambda = createNetlifyHandler(source, fetchImpl)
+export function createNetlifyWebHandler(
+  source: Env = process.env,
+  fetchImpl?: typeof fetch,
+  settings?: Readonly<Record<string, string>>,
+): (request: Request) => Promise<Response> {
+  const lambda = createNetlifyHandler(source, fetchImpl, settings)
   return async (request) => {
     const url = new URL(request.url)
     const headers: Record<string, string> = {}

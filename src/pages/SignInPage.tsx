@@ -19,12 +19,12 @@ function AuthPage({ mode }: { mode: 'sign-in' | 'sign-up' }) {
     <AuthShell>
       <ClerkLoading>
         <p className="flex items-center justify-center gap-2 py-10 font-semibold text-muted" role="status">
-          <Loader2 className="size-5 text-brand motion-safe:animate-spin" aria-hidden /> Loading…
+          <Loader2 className="size-5 text-brand motion-safe:animate-spin" aria-hidden /> جارٍ التحميل…
         </p>
       </ClerkLoading>
       <ClerkFailed>
-        <StatusMessage tone="error" title="Sign-in could not be loaded">
-          Check your internet connection and reload the page. If this keeps happening, tell an administrator.
+        <StatusMessage tone="error" title="تعذّر تحميل صفحة الدخول">
+          تحقّق من اتصال الإنترنت وأعد تحميل الصفحة. إذا تكرر ذلك أبلغ المسؤول.
         </StatusMessage>
       </ClerkFailed>
       {isLoaded && (mode === 'sign-in' ? <SignInForm destination={destination} /> : <SignUpForm destination={destination} />)}

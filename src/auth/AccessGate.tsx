@@ -5,6 +5,7 @@ import { FullPageState } from '../components/FullPageState'
 import { primaryButton } from '../components/ui'
 import { useApiClient } from '../hooks/useApiClient'
 import { isAbortError } from '../lib/api'
+import { statusCopy } from '../lib/messages'
 
 type GateState = { status: 'checking' } | { status: 'granted' } | { status: 'failed'; error: ApiError }
 
@@ -24,37 +25,37 @@ export function AccessGate({ children }: { children: ReactNode }) {
       .session(abort.signal)
       .then((result) => setState(result.ok ? { status: 'granted' } : { status: 'failed', error: result.error }))
       .catch((error: unknown) => {
-        if (!isAbortError(error)) setState({ status: 'failed', error: { code: 'NETWORK_ERROR', message: 'Cannot reach the scanner service.' } })
+        if (!isAbortError(error)) setState({ status: 'failed', error: { code: 'NETWORK_ERROR', message: 'تعذّر الوصول إلى خدمة الماسح.' } })
       })
     return () => abort.abort()
   }, [api, attempt])
 
   if (state.status === 'granted') return <>{children}</>
-  if (state.status === 'checking') return <FullPageState title="Opening the scanner…" loading />
+  if (state.status === 'checking') return <FullPageState title="جارٍ فتح الماسح…" loading />
 
   const signOutButton = (
     <button type="button" className={primaryButton} onClick={() => void signOut({ redirectUrl: '/sign-in' })}>
-      Sign in with another account
+      الدخول بحساب آخر
     </button>
   )
   switch (state.error.code) {
     case 'ACCESS_DENIED':
       return (
-        <FullPageState title="No access to the scanner" action={signOutButton}>
-          You are signed in, but your account is not allowed to use the product scanner. Ask an administrator for access.
+        <FullPageState title="لا تملك صلاحية استخدام الماسح" action={signOutButton}>
+          أنت مسجّل الدخول، لكن حسابك غير مسموح له باستخدام ماسح المنتجات. اطلب الصلاحية من المسؤول.
         </FullPageState>
       )
     case 'UNAUTHENTICATED':
     case 'SESSION_ENDED':
       return (
-        <FullPageState title="Your session could not be verified" action={signOutButton}>
-          Sign in again to continue.
+        <FullPageState title="تعذّر التحقق من الجلسة" action={signOutButton}>
+          سجّل الدخول مرة أخرى للمتابعة.
         </FullPageState>
       )
     default:
       return (
         <FullPageState
-          title="The scanner service is unavailable"
+          title="خدمة الماسح غير متاحة حالياً"
           action={
             <button
               type="button"
@@ -64,11 +65,11 @@ export function AccessGate({ children }: { children: ReactNode }) {
                 setAttempt((n) => n + 1)
               }}
             >
-              Try again
+              إعادة المحاولة
             </button>
           }
         >
-          {state.error.message}
+          {statusCopy(state.error.code).hint}
         </FullPageState>
       )
   }

@@ -20,7 +20,7 @@ export function UserMenu() {
 
   const name = user?.fullName || user?.username || ''
   const email = user?.primaryEmailAddress?.emailAddress ?? ''
-  const label = name || email || 'Account'
+  const label = name || email || 'الحساب'
 
   useEffect(() => {
     if (!open) return
@@ -45,7 +45,7 @@ export function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={`Account: ${label}`}
+        aria-label={`الحساب: ${label}`}
         className="flex min-h-11 items-center gap-2 rounded-full py-1 ps-1 pe-2 text-white hover:bg-white/10 sm:pe-3"
       >
         {user?.hasImage ? (
@@ -67,7 +67,7 @@ export function UserMenu() {
         >
           <div className="border-b border-line px-4 py-3">
             <p className="truncate font-bold" dir="auto">
-              {name || 'Signed in'}
+              {name || 'مسجّل الدخول'}
             </p>
             {email && <p className="truncate text-sm text-muted">{email}</p>}
           </div>
@@ -79,7 +79,7 @@ export function UserMenu() {
             }}
             className="flex min-h-12 w-full items-center gap-3 px-4 text-start text-sm font-bold text-danger hover:bg-subtle"
           >
-            <LogOut className="size-4" aria-hidden /> Sign out
+            <LogOut className="size-4" aria-hidden /> تسجيل الخروج
           </button>
         </div>
       )}

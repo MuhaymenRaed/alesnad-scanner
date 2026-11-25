@@ -12,22 +12,17 @@ type Step = 'credentials' | 'email-code' | 'second-factor' | 'reset-request' | '
 type SecondFactor = 'totp' | 'phone_code' | 'email_code' | 'backup_code'
 
 const SECOND_FACTOR_COPY: Record<SecondFactor, { title: string; body: string; label: string; numeric: boolean }> = {
-  totp: { title: 'Two-step verification', body: 'Enter the 6-digit code from your authenticator app.', label: 'Authenticator code', numeric: true },
-  phone_code: { title: 'Two-step verification', body: 'We sent a code to your phone.', label: 'Code from SMS', numeric: true },
-  email_code: { title: 'Confirm it’s you', body: 'We sent a code to your e-mail to verify this device.', label: 'Code from e-mail', numeric: true },
-  backup_code: { title: 'Use a backup code', body: 'Enter one of the backup codes you saved when you set up two-step verification.', label: 'Backup code', numeric: false },
+  totp: { title: 'التحقق بخطوتين', body: 'أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.', label: 'رمز تطبيق المصادقة', numeric: true },
+  phone_code: { title: 'التحقق بخطوتين', body: 'أرسلنا رمزاً إلى هاتفك.', label: 'الرمز من الرسالة النصية', numeric: true },
+  email_code: { title: 'تأكيد هويتك', body: 'أرسلنا رمزاً إلى بريدك الإلكتروني للتحقق من هذا الجهاز.', label: 'الرمز من البريد الإلكتروني', numeric: true },
+  backup_code: { title: 'استخدام رمز احتياطي', body: 'أدخل أحد الرموز الاحتياطية التي حفظتها عند تفعيل التحقق بخطوتين.', label: 'الرمز الاحتياطي', numeric: false },
 }
 
-function Heading({ title, arabic, children }: { title: string; arabic?: string; children?: ReactNode }) {
+function Heading({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="mb-6">
-      <h1 className="text-[1.75rem] leading-tight font-extrabold tracking-[-0.03em]">{title}</h1>
-      {arabic && (
-        <p lang="ar" dir="rtl" className="mt-0.5 text-left text-lg font-semibold text-muted">
-          {arabic}
-        </p>
-      )}
-      {children && <p className="mt-2 text-sm text-muted">{children}</p>}
+      <h1 className="text-[1.85rem] leading-tight font-extrabold">{title}</h1>
+      {children && <p className="mt-2 text-sm leading-relaxed text-muted">{children}</p>}
     </div>
   )
 }
@@ -65,7 +60,7 @@ export function SignInForm({ destination }: { destination: string }) {
     try {
       await task()
     } catch (error) {
-      setProblem(clerkMessage(error, 'Could not reach the sign-in service. Check your connection and try again.'))
+      setProblem(clerkMessage(error, 'تعذّر الوصول إلى خدمة تسجيل الدخول. تحقّق من الاتصال وأعد المحاولة.'))
     } finally {
       setPending(false)
     }
@@ -82,7 +77,7 @@ export function SignInForm({ destination }: { destination: string }) {
     const result = await signIn.finalize({
       navigate: async ({ session, decorateUrl }) => {
         if (session?.currentTask) {
-          setProblem('Your account needs extra setup before it can be used here. Contact an administrator.')
+          setProblem('حسابك يحتاج إعداداً إضافياً قبل استخدامه هنا. تواصل مع المسؤول.')
           return
         }
         const url = decorateUrl(destination)
@@ -100,7 +95,7 @@ export function SignInForm({ destination }: { destination: string }) {
       signIn.status === 'needs_client_trust' ? ['email_code', 'phone_code', 'totp'] : ['totp', 'phone_code', 'email_code', 'backup_code']
     const next = order.find((strategy) => available.has(strategy))
     if (!next) {
-      setProblem('This account needs a verification method this app does not support. Contact an administrator.')
+      setProblem('هذا الحساب يتطلب طريقة تحقق غير مدعومة في التطبيق. تواصل مع المسؤول.')
       return
     }
     if (next === 'email_code' && !ok(await signIn.mfa.sendEmailCode())) return
@@ -124,7 +119,7 @@ export function SignInForm({ destination }: { destination: string }) {
         setStep('new-password')
         return
       default:
-        setProblem('Sign-in could not be completed. Try again or contact an administrator.')
+        setProblem('تعذّر إكمال تسجيل الدخول. أعد المحاولة أو تواصل مع المسؤول.')
     }
   }
 
@@ -146,7 +141,7 @@ export function SignInForm({ destination }: { destination: string }) {
 
   const sendEmailCode = () => {
     if (!email.trim()) {
-      setProblem('Enter your e-mail address first.')
+      setProblem('أدخل بريدك الإلكتروني أولاً.')
       return
     }
     void run(async () => {
@@ -217,25 +212,25 @@ export function SignInForm({ destination }: { destination: string }) {
 
   const back = (
     <button type="button" onClick={() => void startOver()} className={`${outlineButton} w-full`}>
-      <ArrowLeft className="size-4 rtl:rotate-180" aria-hidden /> Back to sign in
+      <ArrowLeft className="size-4 rtl:rotate-180" aria-hidden /> العودة إلى تسجيل الدخول
     </button>
   )
 
   const resend = (onClick: () => void) => (
     <button type="button" onClick={onClick} disabled={busy || cooldown > 0} className={ghostButton}>
-      {cooldown > 0 ? `Send a new code in ${cooldown}s` : 'Send a new code'}
+      {cooldown > 0 ? `إرسال رمز جديد بعد ${cooldown} ث` : 'إرسال رمز جديد'}
     </button>
   )
 
   if (step === 'email-code') {
     return (
       <form onSubmit={verifyEmailCode} className="space-y-5" noValidate>
-        <Heading title="Check your e-mail" arabic="تحقق من بريدك الإلكتروني">
-          We sent a sign-in code to <strong className="text-ink">{email}</strong>.
+        <Heading title="تحقّق من بريدك الإلكتروني">
+          أرسلنا رمز الدخول إلى <strong dir="ltr" className="text-ink">{email}</strong>.
         </Heading>
         {alert}
-        <CodeField label="Sign-in code" value={code} onChange={(e) => setCode(e.target.value)} error={fieldError('code')} autoFocus required />
-        <SubmitButton busy={busy}>Sign in</SubmitButton>
+        <CodeField label="رمز الدخول" value={code} onChange={(e) => setCode(e.target.value)} error={fieldError('code')} autoFocus required />
+        <SubmitButton busy={busy}>تسجيل الدخول</SubmitButton>
         <div className="flex justify-center">{resend(sendEmailCode)}</div>
         {back}
       </form>
@@ -247,7 +242,7 @@ export function SignInForm({ destination }: { destination: string }) {
     const canUseBackup = factor === 'totp' && signIn.supportedSecondFactors.some((f) => f.strategy === 'backup_code')
     return (
       <form onSubmit={verifySecondFactor} className="space-y-5" noValidate>
-        <Heading title={copy.title} arabic="التحقق بخطوتين">
+        <Heading title={copy.title}>
           {copy.body}
         </Heading>
         {alert}
@@ -261,7 +256,7 @@ export function SignInForm({ destination }: { destination: string }) {
           autoFocus
           required
         />
-        <SubmitButton busy={busy}>Verify</SubmitButton>
+        <SubmitButton busy={busy}>تحقّق</SubmitButton>
         <div className="flex flex-wrap justify-center gap-x-4">
           {(factor === 'email_code' || factor === 'phone_code') && resend(resendSecondFactor)}
           {canUseBackup && (
@@ -273,7 +268,7 @@ export function SignInForm({ destination }: { destination: string }) {
                 setCode('')
               }}
             >
-              Use a backup code instead
+              استخدام رمز احتياطي بدلاً من ذلك
             </button>
           )}
         </div>
@@ -285,13 +280,14 @@ export function SignInForm({ destination }: { destination: string }) {
   if (step === 'reset-request') {
     return (
       <form onSubmit={requestReset} className="space-y-5" noValidate>
-        <Heading title="Reset your password" arabic="إعادة تعيين كلمة المرور">
-          Enter your work e-mail and we’ll send you a reset code.
+        <Heading title="إعادة تعيين كلمة المرور">
+          أدخل بريد العمل وسنرسل لك رمز إعادة التعيين.
         </Heading>
         {alert}
         <TextField
-          label="E-mail"
+          label="البريد الإلكتروني"
           type="email"
+          dir="ltr"
           autoComplete="username"
           inputMode="email"
           value={email}
@@ -300,7 +296,7 @@ export function SignInForm({ destination }: { destination: string }) {
           autoFocus
           required
         />
-        <SubmitButton busy={busy}>Send reset code</SubmitButton>
+        <SubmitButton busy={busy}>إرسال الرمز</SubmitButton>
         {back}
       </form>
     )
@@ -309,12 +305,12 @@ export function SignInForm({ destination }: { destination: string }) {
   if (step === 'reset-code') {
     return (
       <form onSubmit={verifyReset} className="space-y-5" noValidate>
-        <Heading title="Enter the reset code" arabic="أدخل رمز إعادة التعيين">
-          We sent a code to <strong className="text-ink">{email}</strong>.
+        <Heading title="أدخل رمز إعادة التعيين">
+          أرسلنا رمزاً إلى <strong dir="ltr" className="text-ink">{email}</strong>.
         </Heading>
         {alert}
-        <CodeField label="Reset code" value={code} onChange={(e) => setCode(e.target.value)} error={fieldError('code')} autoFocus required />
-        <SubmitButton busy={busy}>Continue</SubmitButton>
+        <CodeField label="رمز إعادة التعيين" value={code} onChange={(e) => setCode(e.target.value)} error={fieldError('code')} autoFocus required />
+        <SubmitButton busy={busy}>متابعة</SubmitButton>
         <div className="flex justify-center">
           {resend(() =>
             void run(async () => {
@@ -330,12 +326,12 @@ export function SignInForm({ destination }: { destination: string }) {
   if (step === 'new-password') {
     return (
       <form onSubmit={submitNewPassword} className="space-y-5" noValidate>
-        <Heading title="Choose a new password" arabic="اختر كلمة مرور جديدة">
-          You will be signed out on your other devices.
+        <Heading title="اختر كلمة مرور جديدة">
+          سيتم تسجيل خروجك من أجهزتك الأخرى.
         </Heading>
         {alert}
         <PasswordField
-          label="New password"
+          label="كلمة المرور الجديدة"
           autoComplete="new-password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
@@ -343,7 +339,7 @@ export function SignInForm({ destination }: { destination: string }) {
           autoFocus
           required
         />
-        <SubmitButton busy={busy}>Save and sign in</SubmitButton>
+        <SubmitButton busy={busy}>حفظ وتسجيل الدخول</SubmitButton>
         {back}
       </form>
     )
@@ -351,14 +347,15 @@ export function SignInForm({ destination }: { destination: string }) {
 
   return (
     <div className="space-y-5">
-      <Heading title="Staff sign in" arabic="تسجيل دخول الموظفين">
-        Sign in with your work account to look up products and prices.
+      <Heading title="تسجيل دخول الموظفين">
+        سجّل الدخول بحساب العمل لعرض المنتجات والأسعار.
       </Heading>
       {alert}
       <form onSubmit={submitPassword} className="space-y-5" noValidate>
         <TextField
-          label="E-mail"
+          label="البريد الإلكتروني"
           type="email"
+          dir="ltr"
           name="email"
           autoComplete="username"
           inputMode="email"
@@ -371,7 +368,7 @@ export function SignInForm({ destination }: { destination: string }) {
           required
         />
         <PasswordField
-          label="Password"
+          label="كلمة المرور"
           name="password"
           autoComplete="current-password"
           value={password}
@@ -387,26 +384,26 @@ export function SignInForm({ destination }: { destination: string }) {
                 setStep('reset-request')
               }}
             >
-              Forgot password?
+              نسيت كلمة المرور؟
             </button>
           }
         />
-        <SubmitButton busy={busy}>Sign in</SubmitButton>
+        <SubmitButton busy={busy}>تسجيل الدخول</SubmitButton>
       </form>
 
       <div className="flex items-center gap-3 text-xs font-bold text-muted uppercase" aria-hidden>
-        <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+        <span className="h-px flex-1 bg-line" /> أو <span className="h-px flex-1 bg-line" />
       </div>
 
       <button type="button" onClick={sendEmailCode} disabled={busy} className={`${outlineButton} w-full`}>
-        <Mail className="size-4" aria-hidden /> E-mail me a sign-in code
+        <Mail className="size-4" aria-hidden /> أرسل لي رمز الدخول عبر البريد
       </button>
 
       {signUpEnabled && (
         <p className="text-center text-sm text-muted">
-          New to the team?{' '}
+          موظف جديد؟{' '}
           <Link to="/sign-up" className="font-bold text-brand underline decoration-brand/30 underline-offset-2 hover:decoration-brand">
-            Create an account
+            إنشاء حساب
           </Link>
         </p>
       )}

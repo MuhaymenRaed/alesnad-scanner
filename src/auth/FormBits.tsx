@@ -35,21 +35,23 @@ export function PasswordField({ label, error, action, ...input }: InputProps & {
         </label>
         {action}
       </div>
+      {/* The field is always left-to-right, so the toggle sits on the physical left with matching padding. */}
       <div className="relative">
         <input
           id={id}
           type={visible ? 'text' : 'password'}
+          dir="ltr"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`${fieldInput} pe-12`}
+          className={`${fieldInput} pl-12`}
           {...input}
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-label={visible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
           aria-pressed={visible}
-          className="absolute inset-y-0 end-0 flex w-12 items-center justify-center rounded-e-control text-muted hover:text-ink"
+          className="absolute inset-y-0 left-0 flex w-12 items-center justify-center rounded-l-control text-muted hover:text-ink"
         >
           {visible ? <EyeOff className="size-5" aria-hidden /> : <Eye className="size-5" aria-hidden />}
         </button>
@@ -70,6 +72,7 @@ export function CodeField({ label, error, numeric = true, ...input }: InputProps
       <input
         id={id}
         inputMode={numeric ? 'numeric' : 'text'}
+        dir="ltr"
         autoComplete="one-time-code"
         autoCapitalize="off"
         spellCheck={false}

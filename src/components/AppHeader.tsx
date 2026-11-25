@@ -6,7 +6,7 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-40 bg-charcoal pt-[env(safe-area-inset-top)] text-white shadow-[0_1px_0_rgb(255_255_255/0.06)]">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center gap-3 ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] sm:px-6">
-        <BrandLockup subtitle="Product Scanner · ماسح المنتجات" />
+        <BrandLockup subtitle="ماسح المنتجات والأسعار" />
         <div className="ms-auto">
           <UserMenu />
         </div>
