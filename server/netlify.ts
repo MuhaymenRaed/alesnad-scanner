@@ -60,10 +60,61 @@ export function createNetlifyHandler(source: Env = process.env, fetchImpl?: type
   }
 }
 
-let instance: Handler | undefined
+interface LambdaResult {
+  statusCode: number
+  headers?: Record<string, unknown>
+  multiValueHeaders?: Record<string, unknown[]>
+  body?: string
+  isBase64Encoded?: boolean
+}
 
-/** Netlify entry point (loaded by netlify/functions/api.cjs). Built once per warm instance. */
-export const handler: Handler = (event, context) => {
-  instance ??= createNetlifyHandler()
-  return instance(event, context)
+/**
+ * Adapter for Netlify Functions v2 (`export default (request: Request) => Response`): converts the
+ * Web-standard Request into the event the Express wrapper expects, and the result back again.
+ */
+export function createNetlifyWebHandler(source: Env = process.env, fetchImpl?: typeof fetch): (request: Request) => Promise<Response> {
+  const lambda = createNetlifyHandler(source, fetchImpl)
+  return async (request) => {
+    const url = new URL(request.url)
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+    headers.host ??= url.host
+    const query: Record<string, string> = {}
+    const multiQuery: Record<string, string[]> = {}
+    url.searchParams.forEach((value, key) => {
+      query[key] = value
+      ;(multiQuery[key] ??= []).push(value)
+    })
+    const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
+    const event = {
+      httpMethod: request.method,
+      path: url.pathname,
+      headers,
+      multiValueHeaders: {},
+      queryStringParameters: query,
+      multiValueQueryStringParameters: multiQuery,
+      body: hasBody ? await request.text() : null,
+      isBase64Encoded: false,
+      requestContext: { identity: { sourceIp: headers['x-nf-client-connection-ip'] ?? '' } },
+    }
+    const result = (await lambda(event, {})) as LambdaResult
+    const responseHeaders = new Headers()
+    for (const [key, value] of Object.entries(result.headers ?? {})) responseHeaders.set(key, String(value))
+    for (const [key, values] of Object.entries(result.multiValueHeaders ?? {})) {
+      for (const value of values) responseHeaders.append(key, String(value))
+    }
+    const noBody = result.statusCode === 204 || result.statusCode === 304 || request.method === 'HEAD'
+    const body = noBody ? null : result.isBase64Encoded ? Buffer.from(result.body ?? '', 'base64') : (result.body ?? '')
+    return new Response(body, { status: result.statusCode, headers: responseHeaders })
+  }
+}
+
+let instance: ((request: Request) => Promise<Response>) | undefined
+
+/** Netlify Functions v2 entry (used by netlify/functions/api.mjs). Built once per warm instance. */
+export function handleRequest(request: Request): Promise<Response> {
+  instance ??= createNetlifyWebHandler()
+  return instance(request)
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createNetlifyHandler, netlifyEnv } from './netlify.js'
+import { createNetlifyHandler, createNetlifyWebHandler, netlifyEnv } from './netlify.js'
 import { signSessionToken, TEST_JWT_PUBLIC_KEY, TEST_PUBLISHABLE_KEY, TEST_SECRET_KEY } from './test/clerkFixtures.js'
 import { createFakeErpNext } from './test/fakeErpNext.js'
 
@@ -81,5 +81,40 @@ describe('Netlify: the site domain is trusted even without URL / FRONTEND_ORIGIN
     expect(forSite.statusCode).toBe(200)
     const foreign = (await handler(event('/api/session', {}, { authorization: `Bearer ${signSessionToken({ azp: 'https://evil.example' })}` }), {})) as Response
     expect(foreign.statusCode).toBe(401)
+  })
+})
+
+describe('Netlify Functions v2 web handler (Request → Response)', () => {
+  const request = (path: string, headers: Record<string, string> = {}) => new Request(`${SITE}${path}`, { headers })
+
+  it('serves /api/health and rejects unauthenticated lookups without calling ERPNext', async () => {
+    const erp = createFakeErpNext()
+    const handle = createNetlifyWebHandler(baseEnv, erp.fetchImpl)
+    const health = await handle(request('/api/health'))
+    expect(health.status).toBe(200)
+    expect(((await health.json()) as { data: { status: string } }).data.status).toBe('ok')
+    const lookup = await handle(request('/api/items/lookup?barcode=123'))
+    expect(lookup.status).toBe(401)
+    expect(erp.calls).toHaveLength(0)
+  })
+
+  it('accepts a token for the site the request came in on (no URL / FRONTEND_ORIGIN needed)', async () => {
+    const { URL: _omit, ...env } = baseEnv
+    const handle = createNetlifyWebHandler({ ...env, FRONTEND_ORIGIN: 'http://localhost:5173' }, createFakeErpNext().fetchImpl)
+    const res = await handle(request('/api/session', { authorization: `Bearer ${signSessionToken({ azp: SITE })}` }))
+    expect(res.status).toBe(200)
+  })
+
+  it('keeps repeated query parameters (validation rejects them) and passes binary images through', async () => {
+    const erp = createFakeErpNext()
+    erp.data.items.push({ name: 'IMG-1', item_name: 'Has image', item_group: 'Phones', image: '/files/p.png' })
+    erp.data.files['/files/p.png'] = { contentType: 'image/png', body: Buffer.from([137, 80, 78, 71, 0, 255]) }
+    const handle = createNetlifyWebHandler(baseEnv, erp.fetchImpl)
+    const auth = { authorization: `Bearer ${signSessionToken({ azp: SITE })}` }
+    expect((await handle(request('/api/items/lookup?barcode=1&barcode=2', auth))).status).toBe(400)
+    const image = await handle(request('/api/items/image?itemCode=IMG-1', auth))
+    expect(image.status).toBe(200)
+    expect(image.headers.get('content-type')).toBe('image/png')
+    expect([...new Uint8Array(await image.arrayBuffer())]).toEqual([137, 80, 78, 71, 0, 255])
   })
 })
