@@ -5,6 +5,9 @@ import { App } from './App'
 import { ClerkProviderWithRouter } from './auth/ClerkProviderWithRouter'
 import { FullPageState } from './components/FullPageState'
 import './index.css'
+import { applySavedTheme } from './lib/theme'
+
+applySavedTheme()
 
 // The publishable key is public by design. Secret keys never use the VITE_ prefix.
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined

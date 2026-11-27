@@ -1,8 +1,10 @@
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
-import { Flashlight, FlashlightOff, Loader2, SwitchCamera } from 'lucide-react'
+import { Flashlight, FlashlightOff, Loader2, RotateCw, SwitchCamera } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CameraPermissionAsk, CameraPermissionDenied } from './CameraPermission'
 import { StatusMessage } from './StatusMessage'
+import { primaryButton } from './ui'
 
 /**
  * Camera barcode scanner.
@@ -122,6 +124,35 @@ function storeCamera(id: string) {
   }
 }
 
+const GRANTED_KEY = 'scanner.cameraGranted'
+/** Remember that the camera was allowed, so later visits start it straight away (no extra tap). */
+function rememberGranted(granted: boolean) {
+  try {
+    if (granted) localStorage.setItem(GRANTED_KEY, '1')
+    else localStorage.removeItem(GRANTED_KEY)
+  } catch {
+    // Not essential.
+  }
+}
+function grantedBefore(): boolean {
+  try {
+    return localStorage.getItem(GRANTED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const isPermissionError = (error: unknown) => ['NotAllowedError', 'PermissionDeniedError'].includes((error as Error | null)?.name ?? '')
+
+/**
+ * Permission view: 'checking' (asking the Permissions API), 'ask' (explain, then one button that
+ * triggers the browser prompt), 'denied' (step-by-step help to re-enable), 'live' (camera running).
+ */
+type AccessView = 'checking' | 'ask' | 'denied' | 'live'
+function initialView(): AccessView {
+  if (!cameraSupported() || grantedBefore()) return 'live'
+  return typeof navigator.permissions?.query === 'function' ? 'checking' : 'ask'
+}
+
 interface Props {
   /** True while a lookup is running: detections are ignored (scanning is paused). */
   paused: boolean
@@ -140,6 +171,8 @@ export function CameraScanner({ paused, onDetected }: Props) {
   const [torch, setTorch] = useState<{ supported: boolean; on: boolean }>({ supported: false, on: false })
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([])
   const [deviceId, setDeviceId] = useState<string | null>(() => readStoredCamera())
+  const [view, setView] = useState<AccessView>(initialView)
+  const [attempt, setAttempt] = useState(0)
 
   const pausedRef = useRef(paused)
   const onDetectedRef = useRef(onDetected)
@@ -147,12 +180,47 @@ export function CameraScanner({ paused, onDetected }: Props) {
     pausedRef.current = paused
     onDetectedRef.current = onDetected
   })
-  // Switching camera restarts the stream: show "starting" again (adjust-state-while-rendering).
-  const [startedFor, setStartedFor] = useState(deviceId)
-  if (startedFor !== deviceId) {
-    setStartedFor(deviceId)
-    if (phase !== 'error') setPhase('starting')
+  // A new start (camera switched, permission granted, retry) shows "starting" again
+  // (adjust-state-while-rendering).
+  const runKey = `${view}|${deviceId ?? ''}|${attempt}`
+  const [startedFor, setStartedFor] = useState(runKey)
+  if (startedFor !== runKey) {
+    setStartedFor(runKey)
+    if (cameraSupported()) {
+      setPhase('starting')
+      setError(null)
+    }
   }
+
+  // Follow the browser's camera permission: if the user re-allows it in the site settings, the
+  // camera starts by itself; if it gets blocked, the help card appears.
+  useEffect(() => {
+    if (!cameraSupported() || typeof navigator.permissions?.query !== 'function') return
+    let cancelled = false
+    let status: PermissionStatus | null = null
+    const apply = (state: PermissionState) => {
+      if (cancelled) return
+      if (state === 'granted') setView('live')
+      else if (state === 'denied') {
+        rememberGranted(false)
+        setView('denied')
+      } else setView((current) => (current === 'checking' ? 'ask' : current))
+    }
+    navigator.permissions
+      .query({ name: 'camera' as PermissionName })
+      .then((result) => {
+        status = result
+        apply(result.state)
+        result.onchange = () => apply(result.state)
+      })
+      .catch(() => {
+        if (!cancelled) setView((current) => (current === 'checking' ? 'ask' : current))
+      })
+    return () => {
+      cancelled = true
+      if (status) status.onchange = null
+    }
+  }, [])
   const lastSeen = useRef<{ code: string; at: number } | null>(null)
   const trackRef = useRef<MediaStreamTrack | null>(null)
 
@@ -172,7 +240,7 @@ export function CameraScanner({ paused, onDetected }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!cameraSupported()) return
+    if (!cameraSupported() || view !== 'live') return
     let cancelled = false
     let stream: MediaStream | null = null
     let zxingControls: IScannerControls | null = null
@@ -194,6 +262,7 @@ export function CameraScanner({ paused, onDetected }: Props) {
         throw e
       }
       if (cancelled) return
+      rememberGranted(true)
 
       // Labels are only visible after permission: now switch to the main rear lens if needed.
       const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput')
@@ -265,6 +334,11 @@ export function CameraScanner({ paused, onDetected }: Props) {
 
     start().catch((e: unknown) => {
       if (cancelled) return
+      if (isPermissionError(e)) {
+        rememberGranted(false)
+        setView('denied')
+        return
+      }
       setError(describeCameraError(e))
       setPhase('error')
     })
@@ -275,11 +349,12 @@ export function CameraScanner({ paused, onDetected }: Props) {
       zxingControls?.stop()
       stream?.getTracks().forEach((t) => t.stop())
       const attached = video?.srcObject
-      if (attached instanceof MediaStream) attached.getTracks().forEach((t) => t.stop())
+      // Duck-typed: cleanup must never throw, even where the MediaStream global is missing.
+      if (attached && typeof (attached as MediaStream).getTracks === 'function') (attached as MediaStream).getTracks().forEach((t) => t.stop())
       if (video) video.srcObject = null
       trackRef.current = null
     }
-  }, [deviceId, handleCode])
+  }, [deviceId, handleCode, view, attempt])
 
   const toggleTorch = async () => {
     const track = trackRef.current
@@ -301,9 +376,32 @@ export function CameraScanner({ paused, onDetected }: Props) {
     setDeviceId(next.deviceId)
   }
 
+  if (cameraSupported() && view === 'checking') return <StatusMessage tone="loading" title="جارٍ التحقق من إذن الكاميرا…" />
+  if (cameraSupported() && view === 'ask') return <CameraPermissionAsk onAllow={() => setView('live')} />
+  if (cameraSupported() && view === 'denied') {
+    return (
+      <CameraPermissionDenied
+        onRetry={() => {
+          setView('live')
+          setAttempt((n) => n + 1)
+        }}
+      />
+    )
+  }
+
   if (phase === 'error' && error) {
     return (
-      <StatusMessage tone="warning" title={error.title}>
+      <StatusMessage
+        tone="warning"
+        title={error.title}
+        action={
+          cameraSupported() ? (
+            <button type="button" onClick={() => setAttempt((n) => n + 1)} className={primaryButton}>
+              <RotateCw className="size-4" aria-hidden /> إعادة المحاولة
+            </button>
+          ) : undefined
+        }
+      >
         {error.hint}
       </StatusMessage>
     )

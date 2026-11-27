@@ -14,6 +14,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ماسح الاسناد" />
     <title>ماسح الاسناد · المنتجات والأسعار</title>
+    <script>
+      // Theme before first paint: light unless the user chose dark on this device.
+      try { document.documentElement.dataset.theme = localStorage.getItem('scanner.theme') === 'dark' ? 'dark' : 'light' } catch (e) { document.documentElement.dataset.theme = 'light' }
+    </script>
   </head>
   <body>
     <div id="root"></div>

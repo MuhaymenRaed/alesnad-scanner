@@ -34,6 +34,9 @@
 /* Touch-first sizing (phones, iPads): `coarse:min-h-12` etc. */
 @custom-variant coarse (@media (pointer: coarse));
 
+/* Theme is chosen by the user (light by default) — not by the system setting. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 /* ── Design tokens — mirrored from the Al Isnad design system ─────────────
    Raw variables below are re-exported through `@theme inline`, so the dark
    palette re-themes every utility without `dark:` on each element. */
@@ -110,25 +113,24 @@
   --info: #2563eb;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --canvas: #161618;
-    --surface: #202024;
-    --subtle: #2a2a2f;
-    --ink: #f7f7f8;
-    --muted: #9e9ea8;
-    --line: #313137;
-    --line-strong: #63636e;
-    --brand: #ff5f6e;
-    --brand-fill: #d91a2c;
-    --brand-fill-hover: #ef2b3d;
-    --mark-ink: #ffffff;
-    --success: #23bb7f;
-    --warning: #f0a43a;
-    --danger: #ff6b78;
-    --info: #6ea8ff;
-  }
+/* Dark palette — applied only when the user picks it (html[data-theme="dark"]). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #161618;
+  --surface: #202024;
+  --subtle: #2a2a2f;
+  --ink: #f7f7f8;
+  --muted: #9e9ea8;
+  --line: #313137;
+  --line-strong: #63636e;
+  --brand: #ff5f6e;
+  --brand-fill: #d91a2c;
+  --brand-fill-hover: #ef2b3d;
+  --mark-ink: #ffffff;
+  --success: #23bb7f;
+  --warning: #f0a43a;
+  --danger: #ff6b78;
+  --info: #6ea8ff;
 }
 
 @layer base {

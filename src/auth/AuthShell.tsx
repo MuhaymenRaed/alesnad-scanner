@@ -1,6 +1,7 @@
 import { ScanBarcode, ShieldCheck, Tag } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { BrandLockup, BrandMark, ShopSign } from '../components/BrandMark'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 /**
  * Two-column auth layout in the shop's identity: the form on one side, the charcoal "shop sign"
@@ -15,14 +16,16 @@ export function AuthShell({ children }: { children: ReactNode }) {
         {/* Compact sign band — phones and tablets in portrait */}
         <div className="relative overflow-hidden bg-charcoal pt-[env(safe-area-inset-top)] lg:hidden">
           <div className="absolute -end-10 -top-16 size-48 rounded-full bg-[#e11d2e]/25 blur-3xl" aria-hidden />
-          <div className="relative mx-auto flex max-w-[440px] items-center px-5 py-5 sm:py-7">
+          <div className="relative mx-auto flex max-w-[440px] items-center justify-between gap-3 px-5 py-5 sm:py-7">
             <BrandLockup subtitle="ماسح المنتجات والأسعار" />
+            <ThemeToggle />
           </div>
           <div className="h-[3px] bg-[#e11d2e]" aria-hidden />
         </div>
 
-        <div className="hidden items-center px-10 pt-8 lg:flex">
+        <div className="hidden items-center justify-between gap-3 px-10 pt-8 lg:flex">
           <BrandLockup tone="onLight" subtitle="ماسح المنتجات والأسعار" />
+          <ThemeToggle tone="onLight" />
         </div>
 
         <div className="flex flex-1 flex-col px-5 py-8 sm:px-8 sm:py-10">
